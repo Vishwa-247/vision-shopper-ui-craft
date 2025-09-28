@@ -80,8 +80,8 @@ serve(async (req) => {
       .update({ generation_job_id: job.id })
       .eq('id', course.id);
 
-    // Start background content generation using waitUntil
-    EdgeRuntime.waitUntil(generateCourseContent(supabaseClient, course.id, courseName, purpose, difficulty, userId, geminiApiKey || ''));
+    // Start background content generation
+    generateCourseContent(supabaseClient, course.id, courseName, purpose, difficulty, userId, geminiApiKey || '').catch(console.error);
 
     return new Response(JSON.stringify({
       success: true,
@@ -97,7 +97,7 @@ serve(async (req) => {
     
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'An unknown error occurred'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -189,11 +189,14 @@ async function generateCourseContent(
   } catch (error) {
     console.error('Error in background content generation:', error);
     
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
     await supabaseClient
       .from('course_generation_jobs')
       .update({
         status: 'failed',
-        error_message: error.message,
+        error_message: errorMessage,
         completed_at: new Date().toISOString()
       })
       .eq('course_id', courseId);
@@ -203,8 +206,8 @@ async function generateCourseContent(
       user_id: userId,
       course_id: courseId,
       log_level: 'error',
-      message: `Course generation failed: ${error.message}`,
-      metadata: { error: error.stack }
+      message: `Course generation failed: ${errorMessage}`,
+      metadata: { error: errorStack }
     });
   }
 }
