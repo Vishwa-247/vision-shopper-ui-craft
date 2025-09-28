@@ -43,6 +43,19 @@ export default function ProfileBuilder() {
   const { user } = useAuth();
   const { profile, updateProfile, isLoading } = useProfile();
   const [activeSection, setActiveSection] = useState("resume");
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+
+  const handleEdit = () => {
+    setEditingSection(activeSection);
+  };
+
+  const handleSave = () => {
+    setEditingSection(null);
+  };
+
+  const handleCancel = () => {
+    setEditingSection(null);
+  };
 
   const currentSection = sections.find(s => s.id === activeSection) || sections[0];
 
@@ -96,16 +109,7 @@ export default function ProfileBuilder() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading your profile...</p>
-        </div>
-      </div>
-    );
-  }
+  // Remove full-page loading - we'll use inline loading indicators instead
 
   return (
     <Container className="py-8">
@@ -119,9 +123,29 @@ export default function ProfileBuilder() {
                 Build your professional profile to get personalized recommendations
               </p>
             </div>
-            <Badge variant="secondary" className="px-4 py-2">
-              {profile?.completionPercentage || 0}% Complete
-            </Badge>
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => window.location.reload()}
+                className="px-3 py-1"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh
+              </Button>
+              <Badge variant="secondary" className="px-4 py-2">
+                {isLoading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-3 w-3 border-b border-current"></div>
+                    Loading...
+                  </div>
+                ) : (
+                  `${profile?.completionPercentage || 0}% Complete`
+                )}
+              </Badge>
+            </div>
           </div>
           
           <Card>
@@ -224,15 +248,33 @@ export default function ProfileBuilder() {
 
           {/* Main Content */}
           <div className="lg:col-span-3">
-            <ProfileSection
-              title={currentSection.name}
-              description={currentSection.description}
-              isCompleted={getCompletionStatus(activeSection)}
-              completionPercentage={getSectionCompletionPercentage(activeSection)}
-              icon={currentSection.icon && <currentSection.icon className="h-5 w-5" />}
-            >
-              <currentSection.component />
-            </ProfileSection>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  <p className="mt-2 text-sm text-muted-foreground">Loading section...</p>
+                </div>
+              </div>
+            ) : (
+              <ProfileSection
+                title={currentSection.name}
+                description={currentSection.description}
+                isCompleted={getCompletionStatus(activeSection)}
+                completionPercentage={getSectionCompletionPercentage(activeSection)}
+                icon={currentSection.icon && <currentSection.icon className="h-5 w-5" />}
+                onEdit={handleEdit}
+                onSave={handleSave}
+                onCancel={handleCancel}
+                isEditing={editingSection === activeSection}
+                isLoading={isLoading}
+              >
+                <currentSection.component 
+                  isEditing={editingSection === activeSection}
+                  onSave={handleSave}
+                  onCancel={handleCancel}
+                />
+              </ProfileSection>
+            )}
           </div>
         </div>
       </div>

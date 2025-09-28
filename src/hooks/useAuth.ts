@@ -47,6 +47,7 @@ export const useAuth = () => {
     signingUp: false,
     signingOut: false,
   });
+  const [hasShownWelcome, setHasShownWelcome] = useState(false);
   const { toast } = useToast();
 
   // Simple, direct auth state update
@@ -82,12 +83,18 @@ export const useAuth = () => {
         
         updateAuthState(session, false);
 
-        // Show welcome toast for successful sign-ins
-        if (event === 'SIGNED_IN' && session) {
+        // Show welcome toast only for new sign-ins, not page refreshes
+        if (event === 'SIGNED_IN' && session && !hasShownWelcome) {
+          setHasShownWelcome(true);
           toast({
             title: "Welcome back!",
             description: "You have successfully signed in.",
           });
+        }
+        
+        // Reset welcome flag on sign out
+        if (event === 'SIGNED_OUT') {
+          setHasShownWelcome(false);
         }
         
         // Clear auth storage on sign out

@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,7 +22,13 @@ const personalInfoSchema = z.object({
 
 type PersonalInfoFormData = z.infer<typeof personalInfoSchema>;
 
-export default function PersonalInfoForm() {
+interface PersonalInfoFormProps {
+  isEditing?: boolean;
+  onSave?: () => void;
+  onCancel?: () => void;
+}
+
+export default function PersonalInfoForm({ isEditing = true, onSave, onCancel }: PersonalInfoFormProps) {
   const { profile, updateProfile, isLoading } = useProfile();
   const { toast } = useToast();
 
@@ -37,8 +44,23 @@ export default function PersonalInfoForm() {
       portfolio: profile?.personalInfo.portfolio || "",
     },
   });
+  
+  // Update form when profile changes
+  useEffect(() => {
+    if (profile?.personalInfo) {
+      form.reset({
+        fullName: profile.personalInfo.fullName || "",
+        email: profile.personalInfo.email || "",
+        phone: profile.personalInfo.phone || "",
+        location: profile.personalInfo.location || "",
+        linkedin: profile.personalInfo.linkedin || "",
+        github: profile.personalInfo.github || "",
+        portfolio: profile.personalInfo.portfolio || "",
+      });
+    }
+  }, [profile?.personalInfo, form]);
 
-  const onSubmit = async (data: PersonalInfoFormData) => {
+  const handleSubmit = async (data: PersonalInfoFormData) => {
     try {
       await updateProfile({
         personalInfo: data as PersonalInfo,
@@ -48,6 +70,8 @@ export default function PersonalInfoForm() {
         title: "Success",
         description: "Personal information updated successfully!",
       });
+      
+      if (onSave) onSave();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast({
@@ -58,17 +82,70 @@ export default function PersonalInfoForm() {
     }
   };
 
+  const handleCancel = () => {
+    form.reset();
+    if (onCancel) onCancel();
+  };
+
+  if (!isEditing && profile?.personalInfo) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h3 className="font-medium text-sm text-muted-foreground mb-1">Full Name</h3>
+            <p className="text-base">{profile.personalInfo.fullName || "Not specified"}</p>
+          </div>
+          <div>
+            <h3 className="font-medium text-sm text-muted-foreground mb-1">Email</h3>
+            <p className="text-base">{profile.personalInfo.email || "Not specified"}</p>
+          </div>
+          <div>
+            <h3 className="font-medium text-sm text-muted-foreground mb-1">Phone</h3>
+            <p className="text-base">{profile.personalInfo.phone || "Not specified"}</p>
+          </div>
+          <div>
+            <h3 className="font-medium text-sm text-muted-foreground mb-1">Location</h3>
+            <p className="text-base">{profile.personalInfo.location || "Not specified"}</p>
+          </div>
+          {profile.personalInfo.linkedin && (
+            <div>
+              <h3 className="font-medium text-sm text-muted-foreground mb-1">LinkedIn</h3>
+              <p className="text-base text-blue-600 hover:underline">
+                <a href={profile.personalInfo.linkedin} target="_blank" rel="noopener noreferrer">
+                  {profile.personalInfo.linkedin}
+                </a>
+              </p>
+            </div>
+          )}
+          {profile.personalInfo.github && (
+            <div>
+              <h3 className="font-medium text-sm text-muted-foreground mb-1">GitHub</h3>
+              <p className="text-base text-blue-600 hover:underline">
+                <a href={profile.personalInfo.github} target="_blank" rel="noopener noreferrer">
+                  {profile.personalInfo.github}
+                </a>
+              </p>
+            </div>
+          )}
+          {profile.personalInfo.portfolio && (
+            <div className="md:col-span-2">
+              <h3 className="font-medium text-sm text-muted-foreground mb-1">Portfolio</h3>
+              <p className="text-base text-blue-600 hover:underline">
+                <a href={profile.personalInfo.portfolio} target="_blank" rel="noopener noreferrer">
+                  {profile.personalInfo.portfolio}
+                </a>
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold mb-2">Personal Information</h2>
-        <p className="text-muted-foreground">
-          Tell us about yourself. This information will be used across your profile.
-        </p>
-      </div>
-
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
@@ -175,11 +252,16 @@ export default function PersonalInfoForm() {
             />
           </div>
 
-          <div className="flex justify-end">
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Saving..." : "Save Changes"}
-            </Button>
-          </div>
+          {isEditing && (
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={handleCancel}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          )}
         </form>
       </Form>
     </div>
