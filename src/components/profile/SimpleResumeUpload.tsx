@@ -93,7 +93,9 @@ const SimpleResumeUpload = () => {
       }, 400);
 
       // Process the resume
+      console.log('📁 Processing file:', file.name, 'Size:', file.size);
       const result = await uploadResume(file);
+      console.log('📋 Upload result:', result);
       
       clearInterval(progressInterval);
       setUploadProgress(100);

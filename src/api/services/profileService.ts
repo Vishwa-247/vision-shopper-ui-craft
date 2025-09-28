@@ -297,13 +297,42 @@ export const profileService = {
       formData.append('user_id', userId);
 
       console.log('🤖 Calling AI extraction service via API Gateway...');
-      const extractionResponse = await fetch('http://localhost:8000/api/profile/extract-profile', {
-        method: 'POST',
-        body: formData,
-      });
+      
+      // Try multiple backend endpoints for better reliability
+      const endpoints = [
+        'http://localhost:8000/api/profile/extract-profile',
+        'http://localhost:8006/extract-profile', // Direct profile service
+        'http://localhost:8003/extract-profile'  // Resume analyzer service
+      ];
+      
+      let extractionResponse: Response | null = null;
+      let lastError: Error | null = null;
+      
+      // Try each endpoint
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`🔄 Trying endpoint: ${endpoint}`);
+          extractionResponse = await fetch(endpoint, {
+            method: 'POST',
+            body: formData,
+          });
+          
+          if (extractionResponse.ok) {
+            console.log(`✅ Successfully connected to: ${endpoint}`);
+            break;
+          } else {
+            console.warn(`❌ Endpoint ${endpoint} returned: ${extractionResponse.status}`);
+          }
+        } catch (error) {
+          console.warn(`❌ Failed to connect to ${endpoint}:`, error);
+          lastError = error as Error;
+          extractionResponse = null;
+        }
+      }
 
-      if (!extractionResponse.ok) {
-        console.warn('AI extraction service unavailable, falling back to basic upload');
+      if (!extractionResponse || !extractionResponse.ok) {
+        console.warn('❌ All AI extraction services unavailable, falling back to basic upload');
+        console.warn('Last error:', lastError?.message);
         // Fallback to basic upload without AI extraction
         const { data: resumeData, error: resumeError } = await supabase
           .from('user_resumes')
