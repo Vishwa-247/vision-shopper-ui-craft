@@ -298,26 +298,58 @@ export const profileService = {
 
       console.log('🤖 Calling AI extraction service via API Gateway...');
       
-      // Try multiple backend endpoints for better reliability
-      const endpoints = [
-        'http://localhost:8000/api/profile/extract-profile',
-        'http://localhost:8006/extract-profile', // Direct profile service
-        'http://localhost:8003/extract-profile'  // Resume analyzer service
-      ];
+  // Check backend service health first
+  const serviceHealthChecks = [
+    { name: 'API Gateway', url: 'http://localhost:8000/health' },
+    { name: 'Profile Service', url: 'http://localhost:8006/health' },
+    { name: 'Resume Analyzer', url: 'http://localhost:8003/health' }
+  ];
+
+  console.log('🔍 Checking backend service health...');
+  const availableServices = [];
+  
+  for (const service of serviceHealthChecks) {
+    try {
+      const healthCheck = await fetch(service.url, { 
+        method: 'GET',
+        signal: AbortSignal.timeout(3000) // 3 second timeout for health checks
+      });
+      if (healthCheck.ok) {
+        availableServices.push(service.name);
+        console.log(`✅ ${service.name} is running`);
+      }
+    } catch (error) {
+      console.log(`❌ ${service.name} is not available`);
+    }
+  }
+
+  if (availableServices.length === 0) {
+    throw new Error('Backend AI service is not running. Please start the Python backend services using start_all_services.bat');
+  }
+
+  console.log(`🟢 Found ${availableServices.length} available services: ${availableServices.join(', ')}`);
+
+  // Try multiple backend endpoints for better reliability
+  const endpoints = [
+    'http://localhost:8000/api/profile/extract-profile',
+    'http://localhost:8006/extract-profile', // Direct profile service
+    'http://localhost:8003/extract-profile'  // Resume analyzer service
+  ];
+  
+  let extractionResponse: Response | null = null;
+  let lastError: Error | null = null;
+  
+  // Try each endpoint with timeout
+  for (const endpoint of endpoints) {
+    try {
+      console.log(`🔄 Trying endpoint: ${endpoint}`);
+      extractionResponse = await fetch(endpoint, {
+        method: 'POST',
+        body: formData,
+        signal: AbortSignal.timeout(30000) // 30 second timeout
+      });
       
-      let extractionResponse: Response | null = null;
-      let lastError: Error | null = null;
-      
-      // Try each endpoint
-      for (const endpoint of endpoints) {
-        try {
-          console.log(`🔄 Trying endpoint: ${endpoint}`);
-          extractionResponse = await fetch(endpoint, {
-            method: 'POST',
-            body: formData,
-          });
-          
-          if (extractionResponse.ok) {
+      if (extractionResponse.ok) {
             console.log(`✅ Successfully connected to: ${endpoint}`);
             break;
           } else {

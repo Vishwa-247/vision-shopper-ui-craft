@@ -150,23 +150,39 @@ const SimpleResumeUpload = () => {
       }
       
     } catch (error: any) {
-      console.error("Resume processing error:", error);
+        console.error("Resume processing error:", error);
         setIsProcessing(false);
+        setUploadProgress(0);
+        setAiStage('');
         
         // Show specific error message based on error type
         if (error.message?.includes('Backend AI service is not running')) {
           toast({
-            title: "Backend Service Required",
-            description: "Please start the Python backend services first. Check the README for setup instructions.",
+            title: "🚨 Backend Services Required",
+            description: "Please run start_all_services.bat to start the Python backend services. Then try uploading again.",
             variant: "destructive",
-            duration: 6000,
+            duration: 10000,
+            action: (
+              <div className="mt-2">
+                <p className="text-xs text-muted-foreground">
+                  Services needed: API Gateway (8000), Profile Service (8006), Resume Analyzer (8003)
+                </p>
+              </div>
+            ),
+          });
+        } else if (error.message?.includes('timeout') || error.message?.includes('fetch')) {
+          toast({
+            title: "🔌 Connection Issue",
+            description: "Cannot reach backend services. Make sure Python services are running on ports 8000, 8006, and 8003.",
+            variant: "destructive",
+            duration: 8000,
           });
         } else {
           toast({
-            title: "AI Processing Failed",
-            description: error.message || "I couldn't analyze your resume. Please try again or check if backend services are running.",
+            title: "🤖 AI Processing Failed",
+            description: error.message || "Resume analysis failed. Check if backend services are running and try again.",
             variant: "destructive",
-            duration: 5000,
+            duration: 6000,
           });
         }
     }
