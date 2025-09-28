@@ -151,13 +151,24 @@ const SimpleResumeUpload = () => {
       
     } catch (error: any) {
       console.error("Resume processing error:", error);
-      setUploadProgress(0);
-      setIsProcessing(false);
-      toast({
-        title: "AI Processing Failed",
-        description: error.message || "I couldn't analyze your resume. Please try again.",
-        variant: "destructive",
-      });
+        setIsProcessing(false);
+        
+        // Show specific error message based on error type
+        if (error.message?.includes('Backend AI service is not running')) {
+          toast({
+            title: "Backend Service Required",
+            description: "Please start the Python backend services first. Check the README for setup instructions.",
+            variant: "destructive",
+            duration: 6000,
+          });
+        } else {
+          toast({
+            title: "AI Processing Failed",
+            description: error.message || "I couldn't analyze your resume. Please try again or check if backend services are running.",
+            variant: "destructive",
+            duration: 5000,
+          });
+        }
     }
   };
 
