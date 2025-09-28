@@ -62,8 +62,8 @@ const SimpleResumeUpload = () => {
     try {
       // AI Agent processing stages
       const stages = [
-        "🔍 Scanning your resume...",
-        "🧠 AI is reading your content...",
+                 "🔍 Scanning your resume...",
+        "🧠 AI is reading your content with built-in parser...",
         "📊 Extracting work experience...",
         "🎓 Analyzing education history...",
         "⚡ Identifying skills and technologies...",
@@ -156,31 +156,17 @@ const SimpleResumeUpload = () => {
         setAiStage('');
         
         // Show specific error message based on error type
-        if (error.message?.includes('Backend AI service is not running')) {
+        if (error.message?.includes('Unsupported file type')) {
           toast({
-            title: "🚨 Backend Services Required",
-            description: "Please run start_all_services.bat to start the Python backend services. Then try uploading again.",
+            title: "❌ File Type Not Supported",
+            description: "Please upload a PDF or Word document (.pdf, .doc, .docx)",
             variant: "destructive",
-            duration: 10000,
-            action: (
-              <div className="mt-2">
-                <p className="text-xs text-muted-foreground">
-                  Services needed: API Gateway (8000), Profile Service (8006), Resume Analyzer (8003)
-                </p>
-              </div>
-            ),
-          });
-        } else if (error.message?.includes('timeout') || error.message?.includes('fetch')) {
-          toast({
-            title: "🔌 Connection Issue",
-            description: "Cannot reach backend services. Make sure Python services are running on ports 8000, 8006, and 8003.",
-            variant: "destructive",
-            duration: 8000,
+            duration: 6000,
           });
         } else {
           toast({
-            title: "🤖 AI Processing Failed",
-            description: error.message || "Resume analysis failed. Check if backend services are running and try again.",
+            title: "🤖 Built-in AI Processing Failed",
+            description: error.message || "Resume analysis failed. The built-in parser couldn't extract data from your resume.",
             variant: "destructive",
             duration: 6000,
           });

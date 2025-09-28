@@ -291,128 +291,35 @@ export const profileService = {
         throw new Error(`Failed to upload file: ${uploadError.message}`);
       }
 
-      // Call AI extraction service via API Gateway
-      const formData = new FormData();
-      formData.append('resume', file);
-      formData.append('user_id', userId);
-
-      console.log('🤖 Calling AI extraction service via API Gateway...');
+      console.log('🤖 Using built-in resume parsing service...');
       
-  // Check backend service health first
-  const serviceHealthChecks = [
-    { name: 'API Gateway', url: 'http://localhost:8000/health' },
-    { name: 'Profile Service', url: 'http://localhost:8006/health' },
-    { name: 'Resume Analyzer', url: 'http://localhost:8003/health' }
-  ];
-
-  console.log('🔍 Checking backend service health...');
-  const availableServices = [];
-  
-  for (const service of serviceHealthChecks) {
-    try {
-      const healthCheck = await fetch(service.url, { 
-        method: 'GET',
-        signal: AbortSignal.timeout(3000) // 3 second timeout for health checks
-      });
-      if (healthCheck.ok) {
-        availableServices.push(service.name);
-        console.log(`✅ ${service.name} is running`);
-      }
-    } catch (error) {
-      console.log(`❌ ${service.name} is not available`);
-    }
-  }
-
-  if (availableServices.length === 0) {
-    throw new Error('Backend AI service is not running. Please start the Python backend services using start_all_services.bat');
-  }
-
-  console.log(`🟢 Found ${availableServices.length} available services: ${availableServices.join(', ')}`);
-
-  // Try multiple backend endpoints for better reliability
-  const endpoints = [
-    'http://localhost:8000/api/profile/extract-profile',
-    'http://localhost:8006/extract-profile', // Direct profile service
-    'http://localhost:8003/extract-profile'  // Resume analyzer service
-  ];
-  
-  let extractionResponse: Response | null = null;
-  let lastError: Error | null = null;
-  
-  // Try each endpoint with timeout
-  for (const endpoint of endpoints) {
-    try {
-      console.log(`🔄 Trying endpoint: ${endpoint}`);
-      extractionResponse = await fetch(endpoint, {
-        method: 'POST',
-        body: formData,
-        signal: AbortSignal.timeout(30000) // 30 second timeout
-      });
+      // Use built-in resume parsing service
+      const { resumeParsingService } = await import('./resumeParsingService');
+      const extractionResult = await resumeParsingService.parseResume(file);
       
-      if (extractionResponse.ok) {
-            console.log(`✅ Successfully connected to: ${endpoint}`);
-            break;
-          } else {
-            console.warn(`❌ Endpoint ${endpoint} returned: ${extractionResponse.status}`);
-          }
-        } catch (error) {
-          console.warn(`❌ Failed to connect to ${endpoint}:`, error);
-          lastError = error as Error;
-          extractionResponse = null;
-        }
-      }
+      console.log('✅ Built-in AI extraction completed:', extractionResult);
 
-      if (!extractionResponse || !extractionResponse.ok) {
-        console.warn('❌ All AI extraction services unavailable, falling back to basic upload');
-        console.warn('Last error:', lastError?.message);
-        // Fallback to basic upload without AI extraction
-        const { data: resumeData, error: resumeError } = await supabase
-          .from('user_resumes')
-          .upsert({
-            user_id: userId,
-            filename: file.name,
-            file_path: uploadData.path,
-            file_size: file.size,
-            processing_status: 'completed',
-            extraction_status: 'failed',
-          })
-          .select()
-          .single();
+      // Delete existing resume if any
+      await supabase
+        .from('user_resumes')
+        .delete()
+        .eq('user_id', userId);
 
-        return {
-          success: true,
-          extraction_id: resumeData?.id || '',
-          extracted_data: {},
-          confidence_score: 0,
-          message: 'Resume uploaded but AI extraction failed',
-          metadata: {
-            filename: file.name,
-            file_size: file.size,
-            extraction_date: new Date().toISOString(),
-            ai_provider: 'none',
-            storage_path: uploadData.path,
-          },
-        };
-      }
-
-      const extractionResult = await extractionResponse.json();
-      console.log('✅ AI extraction completed:', extractionResult);
-
-      // Save resume record with AI extraction data
+      // Save resume record with AI extraction data  
+      const insertData = {
+        user_id: userId,
+        filename: file.name,
+        file_path: uploadData.path,
+        file_size: file.size,
+        processing_status: 'completed' as const,
+        extraction_status: extractionResult.success ? 'completed' as const : 'failed' as const,
+        extracted_text: JSON.stringify(extractionResult.extracted_data),
+        ai_analysis: extractionResult.extracted_data as any,
+      };
+      
       const { data: resumeData, error: resumeError } = await supabase
         .from('user_resumes')
-        .upsert({
-          user_id: userId,
-          filename: file.name,
-          file_path: uploadData.path,
-          file_size: file.size,
-          processing_status: 'completed',
-          extraction_status: 'completed',
-          extracted_text: extractionResult.extracted_text,
-          ai_analysis: extractionResult.extracted_data,
-          skill_gaps: extractionResult.skill_gaps || [],
-          recommendations: extractionResult.recommendations || [],
-        })
+        .insert([insertData])
         .select()
         .single();
 
@@ -421,16 +328,16 @@ export const profileService = {
       }
 
       return {
-        success: true,
+        success: extractionResult.success,
         extraction_id: resumeData.id,
         extracted_data: extractionResult.extracted_data || {},
-        confidence_score: extractionResult.confidence_score || 0.85,
-        message: 'Resume uploaded and analyzed successfully',
+        confidence_score: extractionResult.confidence_score || 0.8,
+        message: extractionResult.message || 'Resume processed with built-in parser',
         metadata: {
           filename: file.name,
           file_size: file.size,
           extraction_date: new Date().toISOString(),
-          ai_provider: 'groq_ai',
+          ai_provider: 'built_in_parser',
           storage_path: uploadData.path,
         },
       };
