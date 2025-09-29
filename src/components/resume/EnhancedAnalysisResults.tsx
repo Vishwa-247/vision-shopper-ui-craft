@@ -76,19 +76,21 @@ export const EnhancedAnalysisResults: React.FC<EnhancedAnalysisResultsProps> = (
     icon: React.ReactNode; 
     description: string 
   }> = ({ title, score, icon, description }) => (
-    <Card>
+    <Card className="glass-card hover:shadow-lg transition-all duration-300 hover:scale-[1.02] group">
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            {icon}
-            <h3 className="font-semibold">{title}</h3>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+              {icon}
+            </div>
+            <h3 className="font-semibold text-foreground">{title}</h3>
           </div>
-          <Badge variant="outline" className={getScoreBadgeColor(score)}>
+          <Badge variant="outline" className={`${getScoreBadgeColor(score)} font-semibold`}>
             {Math.round(score)}%
           </Badge>
         </div>
-        <Progress value={score} className="mb-2" />
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <Progress value={score} className="mb-3 h-2" />
+        <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
       </CardContent>
     </Card>
   );
@@ -96,20 +98,30 @@ export const EnhancedAnalysisResults: React.FC<EnhancedAnalysisResultsProps> = (
   return (
     <div className="space-y-6">
       {/* Overall Score Header */}
-      <Card className="bg-gradient-to-r from-primary/10 to-primary/5">
-        <CardContent className="p-6">
+      <Card className="glass-card bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-primary/20">
+        <CardContent className="p-8">
           <div className="text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <TrendingUp className="h-6 w-6 text-primary" />
-              <h2 className="text-2xl font-bold">Resume Analysis Complete</h2>
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="p-3 rounded-full bg-primary/20">
+                <TrendingUp className="h-8 w-8 text-primary" />
+              </div>
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+                Resume Analysis Complete
+              </h2>
             </div>
-            <p className="text-muted-foreground mb-4">
-              Analysis for <strong>{jobRole}</strong> position
+            <p className="text-muted-foreground mb-6 text-lg">
+              Analysis for <Badge variant="outline" className="mx-1 bg-primary/10 text-primary border-primary/20">{jobRole}</Badge> position
             </p>
-            <div className={`text-4xl font-bold ${getScoreColor(analysisData.overall_score)}`}>
-              {Math.round(analysisData.overall_score)}%
+            <div className="relative">
+              <div className={`text-6xl font-bold ${getScoreColor(analysisData.overall_score)} mb-2`}>
+                {Math.round(analysisData.overall_score)}%
+              </div>
+              <Progress 
+                value={analysisData.overall_score} 
+                className="w-32 mx-auto h-2 mb-2"
+              />
+              <p className="text-sm text-muted-foreground font-medium">Overall Score</p>
             </div>
-            <p className="text-sm text-muted-foreground">Overall Score</p>
           </div>
         </CardContent>
       </Card>

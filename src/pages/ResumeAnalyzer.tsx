@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { 
   FileText, 
   Upload, 
@@ -14,7 +15,9 @@ import {
   Briefcase, 
   History,
   ChevronRight,
-  Loader2
+  Loader2,
+  Sparkles,
+  TrendingUp
 } from 'lucide-react';
 import { AnalysisHistory } from '@/components/resume/AnalysisHistory';
 import { ProfileResumeSelector } from '@/components/resume/ProfileResumeSelector';
@@ -62,6 +65,10 @@ const ResumeAnalyzer = () => {
       });
       return;
     }
+    toast({
+      title: "Step Complete!",
+      description: "Job details saved. Now upload your resume.",
+    });
     setCurrentStep('upload');
   };
 
@@ -70,6 +77,10 @@ const ResumeAnalyzer = () => {
     if (file) {
       setSelectedFile(file);
       setSelectedProfileResume(null);
+      toast({
+        title: "File Selected!",
+        description: `${file.name} is ready for analysis`,
+      });
     }
   };
 
@@ -85,6 +96,11 @@ const ResumeAnalyzer = () => {
 
     try {
       setLoading(true);
+      
+      toast({
+        title: "Analysis Starting...",
+        description: "AI is analyzing your resume with advanced techniques",
+      });
       
       const formData = new FormData();
       formData.append('resume', selectedFile);
@@ -108,7 +124,7 @@ const ResumeAnalyzer = () => {
       setCurrentStep('results');
       
       toast({
-        title: "Analysis Complete!",
+        title: "🎉 Analysis Complete!",
         description: "Your resume has been analyzed with action words and STAR methodology",
       });
 
@@ -127,6 +143,11 @@ const ResumeAnalyzer = () => {
   const handleAnalysisSelect = async (analysisId: string) => {
     try {
       setLoading(true);
+      toast({
+        title: "Loading Analysis...",
+        description: "Retrieving your previous analysis results",
+      });
+      
       const response = await fetch(`http://localhost:8003/analysis/${analysisId}`);
       
       if (!response.ok) {
@@ -141,6 +162,11 @@ const ResumeAnalyzer = () => {
       setJobDescription(analysis.job_description || '');
       setSelectedAnalysisId(analysisId);
       setCurrentStep('results');
+      
+      toast({
+        title: "Analysis Loaded!",
+        description: "Previous analysis results are now displayed",
+      });
       
     } catch (error) {
       console.error('Error fetching analysis:', error);
@@ -162,20 +188,61 @@ const ResumeAnalyzer = () => {
     setSelectedProfileResume(null);
     setAnalysisResults(null);
     setSelectedAnalysisId('');
+    toast({
+      title: "New Analysis Started",
+      description: "Ready to analyze another resume!",
+    });
   };
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10">
         <div className="container mx-auto px-4 py-8">
+          {/* Enhanced Header with Progress */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <Brain className="h-12 w-12 text-primary" />
-              <h1 className="text-4xl font-bold text-foreground">Resume Analyzer</h1>
+              <div className="relative">
+                <Brain className="h-12 w-12 text-primary" />
+                <Sparkles className="h-4 w-4 text-primary absolute -top-1 -right-1 animate-pulse" />
+              </div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+                Resume Analyzer
+              </h1>
             </div>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-6">
               Enhanced AI-powered analysis with action words and STAR methodology scoring
             </p>
+            
+            {/* Progress Indicator */}
+            <div className="max-w-md mx-auto">
+              <div className="flex items-center justify-between mb-2">
+                {steps.map((step, index) => (
+                  <div key={step.id} className="flex items-center">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
+                      currentStep === step.id 
+                        ? 'bg-primary text-primary-foreground' 
+                        : step.completed 
+                        ? 'bg-primary/20 text-primary'
+                        : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {index + 1}
+                    </div>
+                    {index < steps.length - 1 && (
+                      <div className={`w-16 h-0.5 mx-2 transition-all ${
+                        steps[index + 1].completed ? 'bg-primary' : 'bg-muted'
+                      }`} />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between text-sm text-muted-foreground">
+                {steps.map((step) => (
+                  <span key={step.id} className={currentStep === step.id ? 'text-primary font-medium' : ''}>
+                    {step.title}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="max-w-7xl mx-auto">
@@ -191,36 +258,54 @@ const ResumeAnalyzer = () => {
               {/* Main Content */}
               <div className="lg:col-span-3">
                 {currentStep === 'job-role' && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Briefcase className="h-6 w-6" />
+                  <Card className="glass-card">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="flex items-center gap-2 text-xl">
+                        <div className="p-2 rounded-lg bg-primary/10">
+                          <Briefcase className="h-6 w-6 text-primary" />
+                        </div>
                         Job Information
                       </CardTitle>
+                      <p className="text-muted-foreground">
+                        Tell us about the position you're applying for
+                      </p>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <Label htmlFor="jobRole">Job Role / Position *</Label>
+                    <CardContent className="space-y-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="jobRole" className="text-sm font-medium">
+                          Job Role / Position *
+                        </Label>
                         <Input
                           id="jobRole"
                           placeholder="e.g., Software Engineer, Product Manager"
                           value={jobRole}
                           onChange={(e) => setJobRole(e.target.value)}
+                          className="h-11"
                         />
                       </div>
                       
-                      <div>
-                        <Label htmlFor="jobDescription">Job Description (Optional)</Label>
+                      <div className="space-y-2">
+                        <Label htmlFor="jobDescription" className="text-sm font-medium">
+                          Job Description (Optional)
+                        </Label>
                         <Textarea
                           id="jobDescription"
                           placeholder="Paste the job description here for more targeted analysis..."
                           value={jobDescription}
                           onChange={(e) => setJobDescription(e.target.value)}
                           rows={6}
+                          className="resize-none"
                         />
+                        <p className="text-xs text-muted-foreground">
+                          Including the job description will provide more accurate keyword matching
+                        </p>
                       </div>
                       
-                      <Button onClick={handleJobRoleNext} className="w-full">
+                      <Button 
+                        onClick={handleJobRoleNext} 
+                        className="w-full h-11 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground"
+                        disabled={!jobRole.trim()}
+                      >
                         Continue to Upload
                         <ChevronRight className="h-4 w-4 ml-2" />
                       </Button>
@@ -229,63 +314,140 @@ const ResumeAnalyzer = () => {
                 )}
 
                 {currentStep === 'upload' && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Upload className="h-6 w-6" />
-                        Upload Resume
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
-                        <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <input
-                          type="file"
-                          accept=".pdf,.docx"
-                          onChange={handleFileUpload}
-                          className="hidden"
-                          id="resume-upload"
-                        />
-                        <Label htmlFor="resume-upload" className="cursor-pointer">
-                          <Button variant="outline" className="mt-4" asChild>
-                            <span>Choose File</span>
+                  <div className="space-y-6">
+                    <Card className="glass-card">
+                      <CardHeader className="pb-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="flex items-center gap-2 text-xl">
+                              <div className="p-2 rounded-lg bg-primary/10">
+                                <Upload className="h-6 w-6 text-primary" />
+                              </div>
+                              Upload Resume
+                            </CardTitle>
+                            <p className="text-muted-foreground mt-1">
+                              Choose a resume file to analyze
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setCurrentStep('job-role')}
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            <ArrowLeft className="h-4 w-4 mr-2" />
+                            Back
                           </Button>
-                        </Label>
-                        {selectedFile && (
-                          <p className="text-sm text-primary mt-2">
-                            Selected: {selectedFile.name}
-                          </p>
-                        )}
-                      </div>
-                      
-                      {selectedFile && (
-                        <Button 
-                          onClick={handleAnalyze} 
-                          className="w-full mt-4"
-                          disabled={loading}
-                        >
-                          {loading ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Analyzing Resume...
-                            </>
-                          ) : (
-                            <>
-                              <Brain className="h-4 w-4 mr-2" />
-                              Analyze Resume
-                            </>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="border-2 border-dashed border-primary/20 rounded-lg p-8 text-center hover:border-primary/40 transition-colors bg-gradient-to-br from-primary/5 to-transparent">
+                          <div className="flex flex-col items-center">
+                            <div className="p-4 rounded-full bg-primary/10 mb-4">
+                              <Upload className="h-8 w-8 text-primary" />
+                            </div>
+                            <h3 className="font-semibold mb-2">Drop your resume here</h3>
+                            <p className="text-sm text-muted-foreground mb-4">
+                              Supports PDF and DOCX files up to 10MB
+                            </p>
+                            <input
+                              type="file"
+                              accept=".pdf,.docx"
+                              onChange={handleFileUpload}
+                              className="hidden"
+                              id="resume-upload"
+                            />
+                            <Label htmlFor="resume-upload" className="cursor-pointer">
+                              <Button variant="outline" className="h-11" asChild>
+                                <span>
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  Choose File
+                                </span>
+                              </Button>
+                            </Label>
+                          </div>
+                          
+                          {selectedFile && (
+                            <div className="mt-6 p-4 bg-primary/5 rounded-lg border border-primary/20">
+                              <div className="flex items-center justify-center gap-2">
+                                <FileText className="h-4 w-4 text-primary" />
+                                <span className="text-sm font-medium text-primary">
+                                  {selectedFile.name}
+                                </span>
+                                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                                  Ready
+                                </Badge>
+                              </div>
+                            </div>
                           )}
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
+                        </div>
+                        
+                        {selectedFile && (
+                          <Button 
+                            onClick={handleAnalyze} 
+                            className="w-full mt-6 h-11 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary"
+                            disabled={loading}
+                          >
+                            {loading ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Analyzing Resume...
+                              </>
+                            ) : (
+                              <>
+                                <Brain className="h-4 w-4 mr-2" />
+                                Analyze Resume with AI
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </CardContent>
+                    </Card>
+                    
+                    {/* Profile Resume Selector */}
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t border-muted" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">Or</span>
+                      </div>
+                    </div>
+                    
+                    <ProfileResumeSelector
+                      onSelectResume={(resume) => {
+                        setSelectedProfileResume(resume);
+                        setSelectedFile(null);
+                        toast({
+                          title: "Profile Resume Selected",
+                          description: `Using ${resume.filename} from your profile`,
+                        });
+                      }}
+                      selectedResumeId={selectedProfileResume?.id}
+                    />
+                  </div>
                 )}
 
                 {currentStep === 'results' && analysisResults && (
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-2xl font-semibold">Analysis Results</h2>
-                      <Button variant="outline" onClick={startNewAnalysis}>
+                  <div className="space-y-6 animate-fade-in">
+                    <div className="flex items-center justify-between p-6 bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg border border-primary/20">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-primary/20">
+                          <TrendingUp className="h-6 w-6 text-primary" />
+                        </div>
+                        <div>
+                          <h2 className="text-2xl font-semibold">Analysis Complete</h2>
+                          <p className="text-muted-foreground">
+                            Comprehensive resume analysis with AI insights
+                          </p>
+                        </div>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        onClick={startNewAnalysis}
+                        className="bg-background/50 hover:bg-background"
+                      >
+                        <Sparkles className="h-4 w-4 mr-2" />
                         New Analysis
                       </Button>
                     </div>

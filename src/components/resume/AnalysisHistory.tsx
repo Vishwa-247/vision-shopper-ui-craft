@@ -103,10 +103,12 @@ export const AnalysisHistory: React.FC<AnalysisHistoryProps> = ({
   }
 
   return (
-    <Card className="w-full">
+    <Card className="glass-card w-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Clock className="h-5 w-5" />
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Clock className="h-5 w-5 text-primary" />
+          </div>
           Analysis History
         </CardTitle>
         <div className="relative">
@@ -115,7 +117,7 @@ export const AnalysisHistory: React.FC<AnalysisHistoryProps> = ({
             placeholder="Search by job role or file name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="pl-10 h-10"
           />
         </div>
       </CardHeader>
@@ -130,8 +132,10 @@ export const AnalysisHistory: React.FC<AnalysisHistoryProps> = ({
               {filteredHistory.map((item) => (
                 <Card
                   key={item.id}
-                  className={`cursor-pointer transition-all hover:shadow-md ${
-                    selectedAnalysisId === item.id ? 'ring-2 ring-primary' : ''
+                  className={`cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] group ${
+                    selectedAnalysisId === item.id 
+                      ? 'ring-2 ring-primary bg-primary/5' 
+                      : 'hover:border-primary/30'
                   }`}
                   onClick={() => onSelectAnalysis(item.id)}
                 >
