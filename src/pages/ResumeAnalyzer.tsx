@@ -258,7 +258,7 @@ const ResumeAnalyzer = () => {
               {/* Main Content */}
               <div className="lg:col-span-3">
                 {currentStep === 'job-role' && (
-                  <Card className="glass-card">
+                  <Card className="border border-border bg-card">
                     <CardHeader className="pb-4">
                       <CardTitle className="flex items-center gap-2 text-xl">
                         <div className="p-2 rounded-lg bg-primary/10">
@@ -303,7 +303,7 @@ const ResumeAnalyzer = () => {
                       
                       <Button 
                         onClick={handleJobRoleNext} 
-                        className="w-full h-11 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground"
+                        className="w-full h-11"
                         disabled={!jobRole.trim()}
                       >
                         Continue to Upload
@@ -315,7 +315,7 @@ const ResumeAnalyzer = () => {
 
                 {currentStep === 'upload' && (
                   <div className="space-y-6">
-                    <Card className="glass-card">
+                    <Card className="border border-border bg-card">
                       <CardHeader className="pb-4">
                         <div className="flex items-center justify-between">
                           <div>
@@ -341,7 +341,7 @@ const ResumeAnalyzer = () => {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <div className="border-2 border-dashed border-primary/20 rounded-lg p-8 text-center hover:border-primary/40 transition-colors bg-gradient-to-br from-primary/5 to-transparent">
+                        <div className="border-2 border-dashed border-primary/20 rounded-lg p-8 text-center hover:border-primary/40 transition-colors bg-primary/5">
                           <div className="flex flex-col items-center">
                             <div className="p-4 rounded-full bg-primary/10 mb-4">
                               <Upload className="h-8 w-8 text-primary" />
@@ -385,7 +385,7 @@ const ResumeAnalyzer = () => {
                         {selectedFile && (
                           <Button 
                             onClick={handleAnalyze} 
-                            className="w-full mt-6 h-11 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary"
+                            className="w-full mt-6 h-11"
                             disabled={loading}
                           >
                             {loading ? (
@@ -430,7 +430,7 @@ const ResumeAnalyzer = () => {
 
                 {currentStep === 'results' && analysisResults && (
                   <div className="space-y-6 animate-fade-in">
-                    <div className="flex items-center justify-between p-6 bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg border border-primary/20">
+                    <div className="flex items-center justify-between p-6 bg-primary/10 rounded-lg border border-primary/20">
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg bg-primary/20">
                           <TrendingUp className="h-6 w-6 text-primary" />

@@ -59,13 +59,13 @@ export const EnhancedAnalysisResults: React.FC<EnhancedAnalysisResultsProps> = (
   jobRole
 }) => {
   const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-primary';
+    if (score >= 80) return 'text-green-600';
     if (score >= 60) return 'text-yellow-600';
     return 'text-red-600';
   };
 
   const getScoreBadgeColor = (score: number) => {
-    if (score >= 80) return 'bg-primary/10 text-primary border-primary/20';
+    if (score >= 80) return 'bg-green-500/10 text-green-600 border-green-500/20';
     if (score >= 60) return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20';
     return 'bg-red-500/10 text-red-600 border-red-500/20';
   };
@@ -76,7 +76,7 @@ export const EnhancedAnalysisResults: React.FC<EnhancedAnalysisResultsProps> = (
     icon: React.ReactNode; 
     description: string 
   }> = ({ title, score, icon, description }) => (
-    <Card className="glass-card hover:shadow-lg transition-all duration-300 hover:scale-[1.02] group">
+    <Card className="border border-border bg-card hover:shadow-lg transition-all duration-300 hover:scale-[1.02] group">
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -98,7 +98,7 @@ export const EnhancedAnalysisResults: React.FC<EnhancedAnalysisResultsProps> = (
   return (
     <div className="space-y-6">
       {/* Overall Score Header */}
-      <Card className="glass-card bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-primary/20">
+      <Card className="border border-border bg-card bg-primary/5 border-primary/20">
         <CardContent className="p-8">
           <div className="text-center">
             <div className="flex items-center justify-center gap-3 mb-4">

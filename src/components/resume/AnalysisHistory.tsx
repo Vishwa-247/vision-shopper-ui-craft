@@ -69,7 +69,7 @@ export const AnalysisHistory: React.FC<AnalysisHistoryProps> = ({
   );
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return 'bg-primary/10 text-primary border-primary/20';
+    if (score >= 80) return 'bg-green-500/10 text-green-600 border-green-500/20';
     if (score >= 60) return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20';
     return 'bg-red-500/10 text-red-600 border-red-500/20';
   };
@@ -103,7 +103,7 @@ export const AnalysisHistory: React.FC<AnalysisHistoryProps> = ({
   }
 
   return (
-    <Card className="glass-card w-full">
+    <Card className="border border-border bg-card w-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <div className="p-2 rounded-lg bg-primary/10">
