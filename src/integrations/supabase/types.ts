@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      action_verbs_reference: {
+        Row: {
+          alternatives: Json | null
+          category: string
+          created_at: string
+          id: string
+          strength_score: number
+          verb: string
+        }
+        Insert: {
+          alternatives?: Json | null
+          category: string
+          created_at?: string
+          id?: string
+          strength_score?: number
+          verb: string
+        }
+        Update: {
+          alternatives?: Json | null
+          category?: string
+          created_at?: string
+          id?: string
+          strength_score?: number
+          verb?: string
+        }
+        Relationships: []
+      }
       agent_logs: {
         Row: {
           agent_name: string
@@ -1027,6 +1054,60 @@ export type Database = {
         }
         Relationships: []
       }
+      resume_analysis_history: {
+        Row: {
+          action_verb_score: number | null
+          analysis_results: Json
+          ats_score: number | null
+          created_at: string
+          file_name: string
+          file_path: string
+          id: string
+          job_description: string | null
+          job_role: string
+          line_by_line_analysis: Json | null
+          overall_score: number | null
+          recommendations: Json | null
+          star_methodology_score: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_verb_score?: number | null
+          analysis_results?: Json
+          ats_score?: number | null
+          created_at?: string
+          file_name: string
+          file_path: string
+          id?: string
+          job_description?: string | null
+          job_role: string
+          line_by_line_analysis?: Json | null
+          overall_score?: number | null
+          recommendations?: Json | null
+          star_methodology_score?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_verb_score?: number | null
+          analysis_results?: Json
+          ats_score?: number | null
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          id?: string
+          job_description?: string | null
+          job_role?: string
+          line_by_line_analysis?: Json | null
+          overall_score?: number | null
+          recommendations?: Json | null
+          star_methodology_score?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       resume_extractions: {
         Row: {
           applied_at: string | null
@@ -1076,6 +1157,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      star_examples_reference: {
+        Row: {
+          action: string
+          category: string
+          created_at: string
+          id: string
+          industry: string | null
+          result: string
+          role_level: string | null
+          situation: string
+          task: string
+        }
+        Insert: {
+          action: string
+          category: string
+          created_at?: string
+          id?: string
+          industry?: string | null
+          result: string
+          role_level?: string | null
+          situation: string
+          task: string
+        }
+        Update: {
+          action?: string
+          category?: string
+          created_at?: string
+          id?: string
+          industry?: string | null
+          result?: string
+          role_level?: string | null
+          situation?: string
+          task?: string
+        }
+        Relationships: []
       }
       user_certifications: {
         Row: {
