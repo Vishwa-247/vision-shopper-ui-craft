@@ -142,17 +142,17 @@
     @apply animate-pulse bg-muted min-h-[200px] min-w-[200px] rounded-lg;
   }
 
-  /* Difficulty Badge Colors with Transparency */
+  /* Difficulty Badge Colors - Fixed for green/yellow/red */
   .badge-easy {
-    @apply bg-blue-500/20 text-blue-700 border-blue-500/30 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/30;
+    @apply bg-green-500/10 text-green-600 border-green-500/20;
   }
   
   .badge-medium {
-    @apply bg-yellow-500/20 text-yellow-700 border-yellow-500/30 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30;
+    @apply bg-yellow-500/10 text-yellow-600 border-yellow-500/20;
   }
   
   .badge-hard {
-    @apply bg-red-500/20 text-red-700 border-red-500/30 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30;
+    @apply bg-red-500/10 text-red-600 border-red-500/20;
   }
 
   /* Fix hover colors for buttons and dropdowns */
