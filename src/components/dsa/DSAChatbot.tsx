@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Bot, Send, User, MessageCircle, X, Minimize2, Maximize2 } from 'lucide-react';
+import { Bot, Send, User, MessageCircle, X, Minimize2, Maximize2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   id: string;
@@ -28,7 +29,7 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: "Hi! I'm your enhanced DSA assistant with real-time web search capabilities. I can help you with algorithms, data structures, and provide the latest resources. What would you like to learn about?",
+      content: "👋 **Hello! I'm your enhanced DSA Assistant**\n\nI can help you with:\n- **Algorithm explanations** and implementations\n- **Data structure** concepts and operations\n- **Real-time web search** for the latest information\n- **Problem-solving strategies** and approaches\n\n🔍 *I have access to current web information to provide you with the most up-to-date resources and solutions.*\n\nWhat would you like to explore today?",
       isBot: true,
       timestamp: new Date(),
     }
@@ -295,13 +296,34 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
                 )}
                 
                 <div
-                  className={`max-w-[80%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
+                  className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
                     message.isBot
                       ? 'bg-muted text-foreground'
                       : 'bg-primary text-primary-foreground'
                   }`}
                 >
-                  {message.content}
+                  {message.isBot ? (
+                    <ReactMarkdown
+                      components={{
+                        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                        strong: ({ children }) => <strong className="font-semibold text-primary">{children}</strong>,
+                        em: ({ children }) => <em className="text-muted-foreground">{children}</em>,
+                        ul: ({ children }) => <ul className="list-disc pl-4 space-y-1">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal pl-4 space-y-1">{children}</ol>,
+                        li: ({ children }) => <li className="text-sm">{children}</li>,
+                        code: ({ children }) => (
+                          <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">{children}</code>
+                        ),
+                        pre: ({ children }) => (
+                          <pre className="bg-muted p-3 rounded-lg overflow-x-auto text-xs font-mono mt-2">{children}</pre>
+                        )
+                      }}
+                    >
+                      {message.content}
+                    </ReactMarkdown>
+                  ) : (
+                    <div className="whitespace-pre-wrap">{message.content}</div>
+                  )}
                 </div>
                 
                 {!message.isBot && (
@@ -322,10 +344,9 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
                   </AvatarFallback>
                 </Avatar>
                 <div className="bg-muted rounded-lg px-3 py-2 text-sm">
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:0.1s]"></div>
-                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    <span className="text-muted-foreground">Searching and analyzing...</span>
                   </div>
                 </div>
               </div>

@@ -324,24 +324,128 @@ export const EnhancedAnalysisResults: React.FC<EnhancedAnalysisResultsProps> = (
         </TabsContent>
 
         <TabsContent value="recommendations" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5" />
-                Overall Recommendations
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {analysisData.recommendations?.map((recommendation, index) => (
-                  <div key={index} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                    <Lightbulb className="h-5 w-5 text-primary mt-0.5" />
-                    <p className="text-sm">{recommendation}</p>
+          <div className="grid gap-4">
+            {/* Priority Recommendations */}
+            <Card className="border-orange-200 bg-orange-50/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-orange-700">
+                  <AlertCircle className="h-5 w-5" />
+                  High Priority Improvements
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 p-3 bg-orange-100/50 rounded-lg border border-orange-200">
+                    <Lightbulb className="h-5 w-5 text-orange-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-orange-800">Strengthen Action Verbs</p>
+                      <p className="text-xs text-orange-700 mt-1">Replace weak verbs like "worked" and "helped" with strong action verbs like "developed", "implemented", "optimized"</p>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="flex items-start gap-3 p-3 bg-orange-100/50 rounded-lg border border-orange-200">
+                    <Lightbulb className="h-5 w-5 text-orange-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-orange-800">Quantify Achievements</p>
+                      <p className="text-xs text-orange-700 mt-1">Add specific numbers, percentages, and metrics to demonstrate impact (e.g., "Increased efficiency by 40%")</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Skill Recommendations */}
+            <Card className="border-blue-200 bg-blue-50/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-blue-700">
+                  <Target className="h-5 w-5" />
+                  Skills & Keywords to Add
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-medium text-blue-800 mb-2">Missing Technical Skills:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {["Cloud Computing", "DevOps", "Agile", "CI/CD", "Docker", "Kubernetes"].map((skill) => (
+                        <Badge key={skill} variant="outline" className="bg-blue-100 text-blue-700 border-blue-300">
+                          {skill}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-blue-800 mb-2">Industry Keywords:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {["Machine Learning", "API Development", "Data Analysis", "System Design"].map((keyword) => (
+                        <Badge key={keyword} variant="outline" className="bg-blue-100 text-blue-700 border-blue-300">
+                          {keyword}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* STAR Method Examples */}
+            <Card className="border-green-200 bg-green-50/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-green-700">
+                  <Star className="h-5 w-5" />
+                  STAR Method Examples
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="p-3 bg-green-100/50 rounded-lg border border-green-200">
+                    <p className="text-sm font-medium text-green-800 mb-2">Before:</p>
+                    <p className="text-xs text-muted-foreground italic">"Worked on a team project to improve the system"</p>
+                  </div>
+                  <div className="p-3 bg-green-100/50 rounded-lg border border-green-200">
+                    <p className="text-sm font-medium text-green-800 mb-2">After (STAR Method):</p>
+                    <p className="text-xs text-green-700">
+                      <strong>Situation:</strong> Legacy system experiencing 30% performance degradation<br/>
+                      <strong>Task:</strong> Led a 4-person team to optimize system architecture<br/>
+                      <strong>Action:</strong> Implemented caching strategies and database indexing<br/>
+                      <strong>Result:</strong> Improved system performance by 45% and reduced load times by 2.3 seconds
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Overall Recommendations */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5" />
+                  Additional Recommendations
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {analysisData.recommendations?.map((recommendation, index) => (
+                    <div key={index} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                      <Lightbulb className="h-5 w-5 text-primary mt-0.5" />
+                      <p className="text-sm">{recommendation}</p>
+                    </div>
+                  ))}
+                  <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                    <Lightbulb className="h-5 w-5 text-primary mt-0.5" />
+                    <p className="text-sm">Consider adding a "Projects" section to showcase hands-on technical experience</p>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                    <Lightbulb className="h-5 w-5 text-primary mt-0.5" />
+                    <p className="text-sm">Include certifications relevant to the {jobRole} role to strengthen your candidacy</p>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                    <Lightbulb className="h-5 w-5 text-primary mt-0.5" />
+                    <p className="text-sm">Optimize formatting for ATS systems by using standard section headers and bullet points</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

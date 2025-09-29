@@ -14,6 +14,7 @@ import { useDSAFilters } from "@/hooks/useDSAFilters";
 import { useFavorites } from "@/hooks/useFavorites";
 import FavoritesTable from "@/components/FavoritesTable";
 import DSAChatbot from "@/components/dsa/DSAChatbot";
+import { FeedbackSystem } from "@/components/dsa/FeedbackSystem";
 
 const DSASheet = () => {
   const [activeTab, setActiveTab] = useState("topics");
@@ -65,7 +66,7 @@ const DSASheet = () => {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
-            <TabsList className="grid w-full max-w-lg mx-auto grid-cols-3">
+            <TabsList className="grid w-full max-w-lg mx-auto grid-cols-4">
               <TabsTrigger value="topics" className="flex items-center gap-2">
                 <BookOpen className="w-4 h-4" />
                 Topics
@@ -77,6 +78,10 @@ const DSASheet = () => {
               <TabsTrigger value="favorites" className="flex items-center gap-2">
                 <Star className="w-4 h-4" />
                 Favorites
+              </TabsTrigger>
+              <TabsTrigger value="feedbacks" className="flex items-center gap-2">
+                <Filter className="w-4 h-4" />
+                Feedbacks
               </TabsTrigger>
             </TabsList>
 
@@ -228,6 +233,21 @@ const DSASheet = () => {
 
             <TabsContent value="favorites" className="mt-8">
               <FavoritesTable />
+            </TabsContent>
+
+            <TabsContent value="feedbacks" className="mt-8">
+              <Card className="bg-card/50 backdrop-blur-sm">
+                <CardContent className="p-6">
+                  <h3 className="text-xl font-semibold text-foreground mb-4">Problem Feedback & Learning Progress</h3>
+                  <p className="text-muted-foreground mb-6">Track your problem-solving journey and get personalized recommendations</p>
+                  <FeedbackSystem 
+                    problemId="general-feedback"
+                    problemName="DSA Practice Feedback"
+                    difficulty="medium"
+                    category="general"
+                  />
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
 
