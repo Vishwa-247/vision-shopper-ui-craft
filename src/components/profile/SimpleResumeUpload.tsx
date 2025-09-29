@@ -92,9 +92,9 @@ const SimpleResumeUpload = () => {
         });
       }, 400);
 
-      // Process the resume
+      // Process the resume with Python backend + Groq AI
       console.log('📁 Processing file:', file.name, 'Size:', file.size);
-      const result = await uploadResume(file);
+      const result = await uploadResume(file, profile.userId);
       console.log('📋 Upload result:', result);
       
       clearInterval(progressInterval);

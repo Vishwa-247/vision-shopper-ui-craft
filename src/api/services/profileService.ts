@@ -327,17 +327,34 @@ export const profileService = {
         throw new Error(`Failed to save resume record: ${resumeError.message}`);
       }
 
+      // Call Python backend for AI processing
+      const formData = new FormData();
+      formData.append('resume', file);
+      formData.append('user_id', userId);
+
+      const response = await fetch('http://localhost:8006/extract-profile', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const backendResult = await response.json();
+      
       return {
-        success: extractionResult.success,
+        success: backendResult.success,
         extraction_id: resumeData.id,
-        extracted_data: extractionResult.extracted_data || {},
-        confidence_score: extractionResult.confidence_score || 0.8,
-        message: extractionResult.message || 'Resume processed with built-in parser',
-        metadata: {
+        extracted_data: backendResult.extracted_data || {},
+        confidence_score: backendResult.confidence_score || 0.8,
+        message: backendResult.message || 'Resume processed with Groq AI',
+        metadata: backendResult.metadata || {
           filename: file.name,
           file_size: file.size,
           extraction_date: new Date().toISOString(),
-          ai_provider: 'built_in_parser',
+          ai_provider: 'groq_ai',
           storage_path: uploadData.path,
         },
       };
@@ -351,90 +368,22 @@ export const profileService = {
     try {
       console.log('📋 Applying extracted data:', extractedData);
       
-      // Prepare profile updates from extracted data
-      const updates: Partial<ProfileFormData> = {};
-      
-      // Handle personal info
-      if (extractedData.personal_info) {
-        updates.personalInfo = {
-          fullName: extractedData.personal_info.full_name || '',
-          email: extractedData.personal_info.email || '',
-          phone: extractedData.personal_info.phone || '',
-          location: extractedData.personal_info.location || '',
-          linkedin: extractedData.personal_info.linkedin || '',
-          github: extractedData.personal_info.github || '',
-          portfolio: extractedData.personal_info.website || '',
-        };
+      // Call Python backend to apply extracted data
+      const response = await fetch(`http://localhost:8006/profile/${userId}/apply-extraction`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(extractedData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
-      
-      // Handle education
-      if (extractedData.education && Array.isArray(extractedData.education)) {
-        updates.education = extractedData.education.map((edu: any) => ({
-          institution: edu.institution || '',
-          degree: edu.degree || '',
-          field: edu.field || '',
-          startYear: edu.start_year || edu.duration?.split('-')[0] || '',
-          endYear: edu.end_year || edu.duration?.split('-')[1] || '',
-          grade: edu.gpa || '',
-          description: edu.description || '',
-        }));
-      }
-      
-      // Handle experience
-      if (extractedData.experience && Array.isArray(extractedData.experience)) {
-        updates.experience = extractedData.experience.map((exp: any) => ({
-          company: exp.company || '',
-          position: exp.position || '',
-          startDate: exp.start_date || exp.duration?.split('-')[0] || '',
-          endDate: exp.end_date || exp.duration?.split('-')[1] || '',
-          current: exp.current || false,
-          description: exp.description || '',
-          technologies: exp.technologies || [],
-          location: exp.location || '',
-        }));
-      }
-      
-      // Handle projects
-      if (extractedData.projects && Array.isArray(extractedData.projects)) {
-        updates.projects = extractedData.projects.map((proj: any) => ({
-          title: proj.name || proj.title || '',
-          description: proj.description || '',
-          technologies: proj.technologies || [],
-          startDate: proj.start_date || proj.duration?.split('-')[0] || '',
-          endDate: proj.end_date || proj.duration?.split('-')[1] || '',
-          githubUrl: proj.github_url || '',
-          liveUrl: proj.live_url || proj.url || '',
-          highlights: proj.highlights || [],
-        }));
-      }
-      
-      // Handle skills
-      if (extractedData.skills && Array.isArray(extractedData.skills)) {
-        updates.skills = extractedData.skills.map((skill: any) => ({
-          name: typeof skill === 'string' ? skill : skill.name || skill,
-          level: skill.level || 'Intermediate' as const,
-          category: skill.category || 'Technical' as const,
-        }));
-      }
-      
-      // Handle certifications
-      if (extractedData.certifications && Array.isArray(extractedData.certifications)) {
-        updates.certifications = extractedData.certifications.map((cert: any) => ({
-          name: cert.name || cert,
-          issuer: cert.issuer || '',
-          issueDate: cert.issue_date || cert.date || '',
-          expiryDate: cert.expiry_date || '',
-          credentialId: cert.credential_id || '',
-          credentialUrl: cert.credential_url || '',
-        }));
-      }
-      
-      console.log('🔄 Profile updates prepared:', Object.keys(updates));
-      
-      // Apply the updates
-      await this.updateProfile(userId, updates);
-      
-      return true;
+
+      const result = await response.json();
+      return result.success;
     } catch (error) {
       console.error('Failed to apply extracted data:', error);
       return false;
