@@ -466,6 +466,7 @@ const ResumeAnalyzer = () => {
 
                       <EnhancedAnalysisResults 
                         analysisData={analysisResults}
+                        jobRole={jobRole}
                       />
                     </div>
                   )}
