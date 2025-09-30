@@ -750,6 +750,57 @@ export type Database = {
         }
         Relationships: []
       }
+      dsa_feedbacks: {
+        Row: {
+          ai_resources: Json | null
+          ai_suggestions: Json | null
+          category: string
+          created_at: string | null
+          detailed_feedback: string | null
+          difficulty: string
+          id: string
+          problem_id: string
+          problem_name: string
+          rating: number
+          struggled_areas: string[] | null
+          time_spent: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          ai_resources?: Json | null
+          ai_suggestions?: Json | null
+          category: string
+          created_at?: string | null
+          detailed_feedback?: string | null
+          difficulty: string
+          id?: string
+          problem_id: string
+          problem_name: string
+          rating: number
+          struggled_areas?: string[] | null
+          time_spent?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          ai_resources?: Json | null
+          ai_suggestions?: Json | null
+          category?: string
+          created_at?: string | null
+          detailed_feedback?: string | null
+          difficulty?: string
+          id?: string
+          problem_id?: string
+          problem_name?: string
+          rating?: number
+          struggled_areas?: string[] | null
+          time_spent?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       exam_attempts: {
         Row: {
           answers: Json

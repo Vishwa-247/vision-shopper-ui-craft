@@ -16,19 +16,14 @@ import {
   BookOpen
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface Feedback {
-  id: string;
-  problemId: string;
-  problemName: string;
-  userId: string;
   rating: number;
-  difficulty: 'easy' | 'medium' | 'hard';
   timeSpent: number;
-  feedback: string;
-  struggledAreas: string[];
-  createdAt: string;
+  struggledWith: string[];
+  additionalFeedback: string;
 }
 
 interface YouTubeVideo {
@@ -54,12 +49,14 @@ export const FeedbackSystem: React.FC<FeedbackSystemProps> = ({
   category
 }) => {
   const { user } = useAuth();
-  const [rating, setRating] = useState<number>(0);
-  const [feedback, setFeedback] = useState('');
-  const [struggledAreas, setStruggedAreas] = useState<string[]>([]);
-  const [timeSpent, setTimeSpent] = useState<number>(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<Feedback>({
+    rating: 0,
+    timeSpent: 0,
+    struggledWith: [],
+    additionalFeedback: ""
+  });
   const [recommendations, setRecommendations] = useState<YouTubeVideo[]>([]);
+  const [loading, setLoading] = useState(false);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
 
   const struggledAreaOptions = [
@@ -74,35 +71,26 @@ export const FeedbackSystem: React.FC<FeedbackSystemProps> = ({
   ];
 
   useEffect(() => {
-    if (rating > 0) {
+    if (feedback.rating > 0) {
       fetchRecommendations();
     }
-  }, [rating, category, difficulty]);
+  }, [feedback.rating]);
 
   const fetchRecommendations = async () => {
-    if (!user?.id) return;
-    
     setLoadingRecommendations(true);
     try {
-      const response = await fetch('https://jwmsgrodliegekbrhvgt.supabase.co/functions/v1/youtube-recommendations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3bXNncm9kbGllZ2VrYnJodmd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0NzU3OTEsImV4cCI6MjA3MjA1MTc5MX0.Nk7JTZQx6Z5tKiVLHeZXUvy8Zkqk3Lc6pftr3H_25RY`
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('youtube-recommendations', {
+        body: {
           problemName,
           category,
           difficulty,
-          userRating: rating,
-          struggledAreas
-        })
+          rating: feedback.rating,
+          struggledWith: feedback.struggledWith,
+        }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setRecommendations(data.videos || []);
-      }
+      if (error) throw error;
+      setRecommendations(data?.videos || []);
     } catch (error) {
       console.error('Error fetching recommendations:', error);
     } finally {
@@ -111,65 +99,87 @@ export const FeedbackSystem: React.FC<FeedbackSystemProps> = ({
   };
 
   const handleSubmitFeedback = async () => {
-    if (!user?.id || rating === 0) {
-      toast({
-        title: "Incomplete Feedback",
-        description: "Please provide a rating before submitting",
-        variant: "destructive"
-      });
+    if (feedback.rating === 0) {
+      toast.error("Please provide a rating");
       return;
     }
 
-    setIsSubmitting(true);
+    setLoading(true);
     try {
-      const response = await fetch('https://jwmsgrodliegekbrhvgt.supabase.co/functions/v1/submit-feedback', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3bXNncm9kbGllZ2VrYnJodmd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0NzU3OTEsImV4cCI6MjA3MjA1MTc5MX0.Nk7JTZQx6Z5tKiVLHeZXUvy8Zkqk3Lc6pftr3H_25RY`
-        },
-        body: JSON.stringify({
-          problemId,
-          problemName,
-          userId: user.id,
-          rating,
-          difficulty,
-          timeSpent,
-          feedback,
-          struggledAreas
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
+        toast.error("Please sign in to submit feedback");
+        return;
+      }
+
+      // Save feedback to database
+      const { data: savedFeedback, error: dbError } = await supabase
+        .from('dsa_feedbacks')
+        .insert({
+          user_id: currentUser.id,
+          problem_id: problemId,
+          problem_name: problemName,
+          difficulty: difficulty,
+          category: category,
+          rating: feedback.rating,
+          time_spent: feedback.timeSpent || null,
+          struggled_areas: feedback.struggledWith,
+          detailed_feedback: feedback.additionalFeedback
         })
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+
+      // Generate AI suggestions in background
+      supabase.functions.invoke('generate-feedback-suggestions', {
+        body: { feedbackId: savedFeedback.id }
+      }).then(({ error }) => {
+        if (error) {
+          console.error('Error generating AI suggestions:', error);
+        }
       });
 
-      if (response.ok) {
-        toast({
-          title: "Feedback Submitted!",
-          description: "Thank you for your feedback. Here are some recommendations for you.",
-        });
-        
-        // Reset form
-        setRating(0);
-        setFeedback('');
-        setStruggedAreas([]);
-        setTimeSpent(0);
-      }
-    } catch (error) {
-      console.error('Error submitting feedback:', error);
-      toast({
-        title: "Error",
-        description: "Failed to submit feedback. Please try again.",
-        variant: "destructive"
+      // Fetch YouTube recommendations
+      const { data, error } = await supabase.functions.invoke('youtube-recommendations', {
+        body: {
+          problemName,
+          difficulty,
+          category,
+          rating: feedback.rating,
+          struggledWith: feedback.struggledWith,
+          feedback: feedback.additionalFeedback
+        }
       });
+
+      if (error) {
+        console.error('YouTube recommendations error:', error);
+      }
+
+      toast.success("Feedback saved! AI suggestions are being generated...");
+      
+      // Reset form
+      setFeedback({
+        rating: 0,
+        timeSpent: 0,
+        struggledWith: [],
+        additionalFeedback: ""
+      });
+    } catch (error) {
+      console.error("Error submitting feedback:", error);
+      toast.error("Failed to submit feedback");
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
   const toggleStruggleArea = (area: string) => {
-    setStruggedAreas(prev => 
-      prev.includes(area) 
-        ? prev.filter(a => a !== area)
-        : [...prev, area]
-    );
+    setFeedback(prev => ({
+      ...prev,
+      struggledWith: prev.struggledWith.includes(area)
+        ? prev.struggledWith.filter(a => a !== area)
+        : [...prev.struggledWith, area]
+    }));
   };
 
   return (
@@ -195,18 +205,18 @@ export const FeedbackSystem: React.FC<FeedbackSystemProps> = ({
                   key={star}
                   variant="ghost"
                   size="sm"
-                  onClick={() => setRating(star)}
+                  onClick={() => setFeedback(prev => ({ ...prev, rating: star }))}
                   className="p-1"
                 >
                   <Star 
                     className={`h-6 w-6 ${
-                      star <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'
+                      star <= feedback.rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'
                     }`} 
                   />
                 </Button>
               ))}
               <span className="ml-2 text-sm text-muted-foreground">
-                {rating > 0 && `${rating}/5 stars`}
+                {feedback.rating > 0 && `${feedback.rating}/5 stars`}
               </span>
             </div>
           </div>
@@ -219,8 +229,8 @@ export const FeedbackSystem: React.FC<FeedbackSystemProps> = ({
             <Input
               id="timeSpent"
               type="number"
-              value={timeSpent}
-              onChange={(e) => setTimeSpent(Number(e.target.value))}
+              value={feedback.timeSpent}
+              onChange={(e) => setFeedback(prev => ({ ...prev, timeSpent: Number(e.target.value) }))}
               placeholder="How many minutes did you spend?"
               className="mt-1"
             />
@@ -235,7 +245,7 @@ export const FeedbackSystem: React.FC<FeedbackSystemProps> = ({
                   <input
                     type="checkbox"
                     id={area}
-                    checked={struggledAreas.includes(area)}
+                    checked={feedback.struggledWith.includes(area)}
                     onChange={() => toggleStruggleArea(area)}
                     className="rounded border-border"
                   />
@@ -254,8 +264,8 @@ export const FeedbackSystem: React.FC<FeedbackSystemProps> = ({
             </Label>
             <Textarea
               id="detailed-feedback"
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
+              value={feedback.additionalFeedback}
+              onChange={(e) => setFeedback(prev => ({ ...prev, additionalFeedback: e.target.value }))}
               placeholder="Share any additional thoughts, suggestions, or insights..."
               rows={3}
               className="mt-1"
@@ -264,10 +274,10 @@ export const FeedbackSystem: React.FC<FeedbackSystemProps> = ({
 
           <Button 
             onClick={handleSubmitFeedback}
-            disabled={isSubmitting || rating === 0}
+            disabled={loading || feedback.rating === 0}
             className="w-full"
           >
-            {isSubmitting ? 'Submitting...' : 'Submit Feedback & Get Recommendations'}
+            {loading ? 'Submitting...' : 'Submit Feedback & Get Recommendations'}
           </Button>
         </CardContent>
       </Card>
