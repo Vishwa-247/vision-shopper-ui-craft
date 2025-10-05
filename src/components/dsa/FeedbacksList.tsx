@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Star, Clock, ChevronDown, ChevronUp, Lightbulb, BookOpen, Target, TrendingUp } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Star, Clock, TrendingUp, ChevronDown, ChevronUp, BookOpen, Lightbulb, Target, Sparkles, Copy, CheckCircle2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 interface Feedback {
   id: string;
@@ -19,24 +19,21 @@ interface Feedback {
   struggled_areas: string[];
   detailed_feedback: string;
   ai_suggestions: {
-    approachSuggestions?: string[];
-    keyConcepts?: string[];
-    similarProblems?: string[];
-    learningResources?: Array<{
-      type: string;
-      title: string;
-      description: string;
-    }>;
-    overallAdvice?: string;
+    approach_suggestions?: string[];
+    key_concepts?: string[];
+    similar_problems?: string[];
+    learning_resources?: string[];
+    overall_advice?: string;
   } | null;
   created_at: string;
 }
 
-export const FeedbacksList = () => {
+const FeedbacksList = () => {
+  const navigate = useNavigate();
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const [copiedSections, setCopiedSections] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchFeedbacks();
@@ -45,7 +42,10 @@ export const FeedbacksList = () => {
   const fetchFeedbacks = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabase
         .from('dsa_feedbacks')
@@ -54,7 +54,8 @@ export const FeedbacksList = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setFeedbacks((data as any) || []);
+
+      setFeedbacks((data || []) as Feedback[]);
     } catch (error) {
       console.error('Error fetching feedbacks:', error);
       toast.error('Failed to load feedbacks');
@@ -65,184 +66,344 @@ export const FeedbacksList = () => {
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty.toLowerCase()) {
-      case 'easy': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'hard': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'easy': return 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20';
+      case 'medium': return 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20';
+      case 'hard': return 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20';
+      default: return 'bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20';
     }
   };
 
+  const copyToClipboard = (text: string, sectionId: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedSections({ ...copiedSections, [sectionId]: true });
+    toast.success("Copied to clipboard");
+    setTimeout(() => {
+      setCopiedSections({ ...copiedSections, [sectionId]: false });
+    }, 2000);
+  };
+
   if (loading) {
-    return <div className="text-center py-8">Loading feedbacks...</div>;
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading your feedbacks...</p>
+        </div>
+      </div>
+    );
   }
 
   if (feedbacks.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted-foreground mb-4">No feedbacks yet. Start solving problems and share your experience!</p>
+        <div className="max-w-md mx-auto">
+          <Sparkles className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-xl font-semibold mb-2">No feedbacks yet</h3>
+          <p className="text-muted-foreground mb-4">
+            Start solving problems and share your experience to get personalized AI suggestions!
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold">Your Problem Feedbacks</h2>
-        <Badge variant="outline">{feedbacks.length} Total</Badge>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+          <Sparkles className="h-6 w-6 text-primary" />
+          Your Problem Feedbacks
+        </h2>
+        <Badge variant="outline" className="text-sm font-medium">
+          {feedbacks.length} Total
+        </Badge>
       </div>
 
-      <div className="grid gap-4">
+      <div className="space-y-6">
         {feedbacks.map((feedback) => (
-          <Card key={feedback.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <CardTitle className="text-xl mb-2">{feedback.problem_name}</CardTitle>
+          <Card key={feedback.id} className="border-2 hover:border-primary/30 transition-all duration-200 overflow-hidden">
+            <CardHeader className="pb-4 bg-gradient-to-r from-primary/5 to-transparent">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-2 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <Badge className={getDifficultyColor(feedback.difficulty)}>
+                    <CardTitle className="text-xl font-bold">{feedback.problem_name}</CardTitle>
+                    <Badge className={`${getDifficultyColor(feedback.difficulty)} font-semibold border`}>
                       {feedback.difficulty}
                     </Badge>
-                    <Badge variant="outline">{feedback.category}</Badge>
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <Badge variant="outline" className="text-xs font-medium">
+                      {feedback.category}
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
                       {[...Array(5)].map((_, i) => (
-                        <Star
+                        <Star 
                           key={i}
-                          className={`h-4 w-4 ${
-                            i < feedback.rating
-                              ? 'fill-yellow-400 text-yellow-400'
-                              : 'text-gray-300'
-                          }`}
+                          className={`h-4 w-4 ${i < feedback.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} 
                         />
                       ))}
+                      <span className="ml-1 font-medium">{feedback.rating}/5</span>
                     </div>
                     {feedback.time_spent && (
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
                         <Clock className="h-4 w-4" />
-                        {feedback.time_spent} min
+                        <span>{feedback.time_spent} min</span>
                       </div>
                     )}
                   </div>
+
+                  {feedback.struggled_areas && feedback.struggled_areas.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {feedback.struggled_areas.map((area, idx) => (
+                        <Badge key={idx} variant="secondary" className="text-xs">
+                          {area}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
+
                 <Button
-                  size="sm"
                   variant="outline"
-                  onClick={() => navigate(`/dsa/${feedback.problem_id}`)}
+                  size="sm"
+                  onClick={() => navigate(`/dsa-sheet/topic/${feedback.category.toLowerCase()}`)}
+                  className="flex items-center gap-2 hover:bg-primary/10"
                 >
-                  Try Again
+                  <TrendingUp className="h-4 w-4" />
+                  Retry
                 </Button>
               </div>
-            </CardHeader>
-
-            <CardContent className="space-y-4">
-              {feedback.struggled_areas && feedback.struggled_areas.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium mb-2">Struggled With:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {feedback.struggled_areas.map((area, idx) => (
-                      <Badge key={idx} variant="secondary">{area}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {feedback.detailed_feedback && (
-                <div>
-                  <p className="text-sm font-medium mb-2">Your Feedback:</p>
-                  <p className="text-sm text-muted-foreground">{feedback.detailed_feedback}</p>
+                <div className="mt-3 p-3 bg-muted/50 rounded-lg border border-border">
+                  <p className="text-sm text-muted-foreground italic">
+                    <span className="font-semibold text-foreground">Your feedback:</span> "{feedback.detailed_feedback}"
+                  </p>
                 </div>
               )}
+            </CardHeader>
 
-              {feedback.ai_suggestions && (
-                <Collapsible
-                  open={expandedId === feedback.id}
-                  onOpenChange={() => setExpandedId(expandedId === feedback.id ? null : feedback.id)}
-                >
-                  <CollapsibleTrigger asChild>
-                    <Button variant="outline" className="w-full">
-                      <Lightbulb className="h-4 w-4 mr-2" />
-                      AI Suggestions & Resources
-                      {expandedId === feedback.id ? (
-                        <ChevronUp className="h-4 w-4 ml-2" />
+            {feedback.ai_suggestions && (
+              <CardContent className="space-y-3 pt-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-semibold text-primary">AI-Generated Suggestions</span>
+                </div>
+
+                {/* Approach Suggestions */}
+                {feedback.ai_suggestions.approach_suggestions && (
+                  <Collapsible
+                    open={expandedItems[`${feedback.id}-approach`]}
+                    onOpenChange={(open) => setExpandedItems({ ...expandedItems, [`${feedback.id}-approach`]: open })}
+                  >
+                    <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-950/20 dark:to-blue-900/10 rounded-lg hover:from-blue-100 hover:to-blue-100 dark:hover:from-blue-950/30 dark:hover:to-blue-900/20 transition-colors border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-center gap-2">
+                        <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <span className="font-semibold text-sm text-blue-900 dark:text-blue-200">Approach Suggestions</span>
+                      </div>
+                      {expandedItems[`${feedback.id}-approach`] ? (
+                        <ChevronUp className="h-4 w-4 text-blue-600" />
                       ) : (
-                        <ChevronDown className="h-4 w-4 ml-2" />
+                        <ChevronDown className="h-4 w-4 text-blue-600" />
                       )}
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-4 space-y-4">
-                    {feedback.ai_suggestions.approachSuggestions && (
-                      <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Target className="h-5 w-5 text-blue-600" />
-                          <h4 className="font-semibold">Approach Suggestions</h4>
-                        </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-3 pl-3">
+                      <div className="relative">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(feedback.ai_suggestions.approach_suggestions.join('\n'), `${feedback.id}-approach`)}
+                          className="absolute top-0 right-0 h-6 px-2"
+                        >
+                          {copiedSections[`${feedback.id}-approach`] ? (
+                            <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
                         <ul className="space-y-2">
-                          {feedback.ai_suggestions.approachSuggestions.map((suggestion, idx) => (
-                            <li key={idx} className="text-sm flex gap-2">
-                              <span className="text-blue-600 font-medium">{idx + 1}.</span>
+                          {feedback.ai_suggestions.approach_suggestions.map((suggestion: string, idx: number) => (
+                            <li key={idx} className="text-sm text-foreground flex gap-2 bg-blue-50/50 dark:bg-blue-950/10 p-2 rounded">
+                              <span className="text-blue-600 dark:text-blue-400 font-bold">•</span>
                               <span>{suggestion}</span>
                             </li>
                           ))}
                         </ul>
                       </div>
-                    )}
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
 
-                    {feedback.ai_suggestions.keyConcepts && (
-                      <div className="bg-purple-50 dark:bg-purple-950 p-4 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <BookOpen className="h-5 w-5 text-purple-600" />
-                          <h4 className="font-semibold">Key Concepts to Review</h4>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {feedback.ai_suggestions.keyConcepts.map((concept, idx) => (
-                            <Badge key={idx} className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                              {concept}
-                            </Badge>
-                          ))}
-                        </div>
+                {/* Key Concepts */}
+                {feedback.ai_suggestions.key_concepts && (
+                  <Collapsible
+                    open={expandedItems[`${feedback.id}-concepts`]}
+                    onOpenChange={(open) => setExpandedItems({ ...expandedItems, [`${feedback.id}-concepts`]: open })}
+                  >
+                    <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-gradient-to-r from-purple-50 to-purple-100/50 dark:from-purple-950/20 dark:to-purple-900/10 rounded-lg hover:from-purple-100 hover:to-purple-100 dark:hover:from-purple-950/30 dark:hover:to-purple-900/20 transition-colors border border-purple-200 dark:border-purple-800">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                        <span className="font-semibold text-sm text-purple-900 dark:text-purple-200">Key Concepts to Review</span>
                       </div>
-                    )}
-
-                    {feedback.ai_suggestions.similarProblems && (
-                      <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <TrendingUp className="h-5 w-5 text-green-600" />
-                          <h4 className="font-semibold">Similar Problems to Practice</h4>
-                        </div>
-                        <ul className="space-y-1">
-                          {feedback.ai_suggestions.similarProblems.map((problem, idx) => (
-                            <li key={idx} className="text-sm">• {problem}</li>
+                      {expandedItems[`${feedback.id}-concepts`] ? (
+                        <ChevronUp className="h-4 w-4 text-purple-600" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-purple-600" />
+                      )}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-3 pl-3">
+                      <div className="relative">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(feedback.ai_suggestions.key_concepts.join('\n'), `${feedback.id}-concepts`)}
+                          className="absolute top-0 right-0 h-6 px-2"
+                        >
+                          {copiedSections[`${feedback.id}-concepts`] ? (
+                            <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
+                        <ul className="space-y-2">
+                          {feedback.ai_suggestions.key_concepts.map((concept: string, idx: number) => (
+                            <li key={idx} className="text-sm text-foreground flex gap-2 bg-purple-50/50 dark:bg-purple-950/10 p-2 rounded">
+                              <span className="text-purple-600 dark:text-purple-400 font-bold">•</span>
+                              <span>{concept}</span>
+                            </li>
                           ))}
                         </ul>
                       </div>
-                    )}
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
 
-                    {feedback.ai_suggestions.learningResources && (
-                      <div className="bg-orange-50 dark:bg-orange-950 p-4 rounded-lg">
-                        <h4 className="font-semibold mb-2">Learning Resources</h4>
-                        <div className="space-y-3">
-                          {feedback.ai_suggestions.learningResources.map((resource, idx) => (
-                            <div key={idx} className="border-l-2 border-orange-400 pl-3">
-                              <Badge variant="outline" className="mb-1">{resource.type}</Badge>
-                              <p className="font-medium text-sm">{resource.title}</p>
-                              <p className="text-xs text-muted-foreground">{resource.description}</p>
-                            </div>
+                {/* Similar Problems */}
+                {feedback.ai_suggestions.similar_problems && (
+                  <Collapsible
+                    open={expandedItems[`${feedback.id}-similar`]}
+                    onOpenChange={(open) => setExpandedItems({ ...expandedItems, [`${feedback.id}-similar`]: open })}
+                  >
+                    <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-gradient-to-r from-green-50 to-green-100/50 dark:from-green-950/20 dark:to-green-900/10 rounded-lg hover:from-green-100 hover:to-green-100 dark:hover:from-green-950/30 dark:hover:to-green-900/20 transition-colors border border-green-200 dark:border-green-800">
+                      <div className="flex items-center gap-2">
+                        <Target className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        <span className="font-semibold text-sm text-green-900 dark:text-green-200">Similar Problems to Practice</span>
+                      </div>
+                      {expandedItems[`${feedback.id}-similar`] ? (
+                        <ChevronUp className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-green-600" />
+                      )}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-3 pl-3">
+                      <div className="relative">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(feedback.ai_suggestions.similar_problems.join('\n'), `${feedback.id}-similar`)}
+                          className="absolute top-0 right-0 h-6 px-2"
+                        >
+                          {copiedSections[`${feedback.id}-similar`] ? (
+                            <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
+                        <ul className="space-y-2">
+                          {feedback.ai_suggestions.similar_problems.map((problem: string, idx: number) => (
+                            <li key={idx} className="text-sm text-foreground flex gap-2 bg-green-50/50 dark:bg-green-950/10 p-2 rounded">
+                              <span className="text-green-600 dark:text-green-400 font-bold">•</span>
+                              <span>{problem}</span>
+                            </li>
                           ))}
-                        </div>
+                        </ul>
                       </div>
-                    )}
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
 
-                    {feedback.ai_suggestions.overallAdvice && (
-                      <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 p-4 rounded-lg border-2 border-blue-200 dark:border-blue-800">
-                        <p className="text-sm font-medium italic">{feedback.ai_suggestions.overallAdvice}</p>
+                {/* Learning Resources */}
+                {feedback.ai_suggestions.learning_resources && (
+                  <Collapsible
+                    open={expandedItems[`${feedback.id}-resources`]}
+                    onOpenChange={(open) => setExpandedItems({ ...expandedItems, [`${feedback.id}-resources`]: open })}
+                  >
+                    <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-gradient-to-r from-orange-50 to-orange-100/50 dark:from-orange-950/20 dark:to-orange-900/10 rounded-lg hover:from-orange-100 hover:to-orange-100 dark:hover:from-orange-950/30 dark:hover:to-orange-900/20 transition-colors border border-orange-200 dark:border-orange-800">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                        <span className="font-semibold text-sm text-orange-900 dark:text-orange-200">Learning Resources</span>
                       </div>
-                    )}
-                  </CollapsibleContent>
-                </Collapsible>
-              )}
-            </CardContent>
+                      {expandedItems[`${feedback.id}-resources`] ? (
+                        <ChevronUp className="h-4 w-4 text-orange-600" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-orange-600" />
+                      )}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-3 pl-3">
+                      <div className="relative">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(feedback.ai_suggestions.learning_resources.join('\n'), `${feedback.id}-resources`)}
+                          className="absolute top-0 right-0 h-6 px-2"
+                        >
+                          {copiedSections[`${feedback.id}-resources`] ? (
+                            <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
+                        <ul className="space-y-2">
+                          {feedback.ai_suggestions.learning_resources.map((resource: string, idx: number) => (
+                            <li key={idx} className="text-sm text-foreground flex gap-2 bg-orange-50/50 dark:bg-orange-950/10 p-2 rounded">
+                              <span className="text-orange-600 dark:text-orange-400 font-bold">•</span>
+                              <span>{resource}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+
+                {/* Overall Advice */}
+                {feedback.ai_suggestions.overall_advice && (
+                  <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-lg border-l-4 border-amber-500">
+                    <div className="flex items-start gap-2">
+                      <Target className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="font-semibold text-sm text-amber-900 dark:text-amber-200">
+                            Overall Advice
+                          </p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(feedback.ai_suggestions.overall_advice, `${feedback.id}-advice`)}
+                            className="h-6 px-2"
+                          >
+                            {copiedSections[`${feedback.id}-advice`] ? (
+                              <CheckCircle2 className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
+                        <p className="text-sm text-foreground leading-relaxed">
+                          {feedback.ai_suggestions.overall_advice}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            )}
           </Card>
         ))}
       </div>
     </div>
   );
 };
+
+export default FeedbacksList;

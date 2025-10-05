@@ -1,12 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Rnd } from 'react-rnd';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Bot, Send, User, MessageCircle, X, Minimize2, Maximize2, Loader2 } from 'lucide-react';
+import { Bot, Send, User, MessageCircle, X, Minimize2, Maximize2, Loader2, GripVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
 
 interface Message {
   id: string;
@@ -26,6 +29,7 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
   onToggleMinimize,
   onClose 
 }) => {
+  const isMobile = useIsMobile();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -38,6 +42,46 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Responsive default sizes
+  const getDefaultSize = () => {
+    if (typeof window === 'undefined') return { width: 420, height: 600 };
+    const width = window.innerWidth;
+    if (width < 640) return { width: width - 32, height: window.innerHeight - 100 };
+    if (width < 1024) return { width: 400, height: 500 };
+    return { width: 420, height: 600 };
+  };
+
+  const getDefaultPosition = () => {
+    if (typeof window === 'undefined') return { x: 0, y: 0 };
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    if (width < 640) return { x: 16, y: 50 };
+    return { x: width - 444, y: height - 650 };
+  };
+
+  // Load saved size/position from localStorage
+  const [chatbotSize, setChatbotSize] = useState(() => {
+    if (typeof window === 'undefined') return getDefaultSize();
+    const deviceType = window.innerWidth < 640 ? 'mobile' : window.innerWidth < 1024 ? 'tablet' : 'desktop';
+    const saved = localStorage.getItem(`chatbot-size-${deviceType}`);
+    return saved ? JSON.parse(saved) : getDefaultSize();
+  });
+
+  const [chatbotPosition, setChatbotPosition] = useState(() => {
+    if (typeof window === 'undefined') return getDefaultPosition();
+    const deviceType = window.innerWidth < 640 ? 'mobile' : window.innerWidth < 1024 ? 'tablet' : 'desktop';
+    const saved = localStorage.getItem(`chatbot-position-${deviceType}`);
+    return saved ? JSON.parse(saved) : getDefaultPosition();
+  });
+
+  // Save size/position to localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const deviceType = window.innerWidth < 640 ? 'mobile' : window.innerWidth < 1024 ? 'tablet' : 'desktop';
+    localStorage.setItem(`chatbot-size-${deviceType}`, JSON.stringify(chatbotSize));
+    localStorage.setItem(`chatbot-position-${deviceType}`, JSON.stringify(chatbotPosition));
+  }, [chatbotSize, chatbotPosition]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -236,9 +280,9 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
 
   if (isMinimized) {
     return (
-      <Card className="fixed bottom-6 right-6 w-64 shadow-lg border-primary/20">
+      <Card className="fixed bottom-6 right-6 w-64 shadow-lg border-primary/20 z-50">
         <CardHeader 
-          className="pb-2 cursor-pointer bg-primary/5"
+          className="pb-2 cursor-pointer bg-primary/5 hover:bg-primary/10 transition-colors"
           onClick={onToggleMinimize}
         >
           <div className="flex items-center justify-between">
@@ -247,10 +291,10 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
               <span className="font-medium text-sm">DSA Assistant</span>
             </div>
             <div className="flex gap-1">
-              <Button variant="ghost" size="sm" onClick={onToggleMinimize}>
+              <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onToggleMinimize?.(); }}>
                 <Maximize2 className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="sm" onClick={onClose}>
+              <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onClose?.(); }}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -260,14 +304,15 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
     );
   }
 
-  return (
-    <Card className="fixed bottom-6 right-6 w-96 h-[600px] shadow-2xl border-primary/20 bg-card/95 backdrop-blur-sm">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
+  // Mobile full-screen mode
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 z-50 bg-background flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b bg-card">
+          <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-primary" />
-            DSA Assistant
-          </CardTitle>
+            <span className="font-semibold">DSA Assistant</span>
+          </div>
           <div className="flex gap-1">
             <Button variant="ghost" size="sm" onClick={onToggleMinimize}>
               <Minimize2 className="h-4 w-4" />
@@ -277,18 +322,16 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
             </Button>
           </div>
         </div>
-      </CardHeader>
 
-      <CardContent className="flex flex-col h-[520px] p-0">
         <ScrollArea className="flex-1 px-4">
-          <div className="space-y-4 py-2">
+          <div className="space-y-4 py-4">
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex gap-3 ${message.isBot ? 'justify-start' : 'justify-end'}`}
               >
                 {message.isBot && (
-                  <Avatar className="h-8 w-8">
+                  <Avatar className="h-8 w-8 flex-shrink-0">
                     <AvatarFallback className="bg-primary/10 text-primary">
                       <Bot className="h-4 w-4" />
                     </AvatarFallback>
@@ -296,7 +339,7 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
                 )}
                 
                 <div
-                  className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                  className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
                     message.isBot
                       ? 'bg-muted text-foreground'
                       : 'bg-primary text-primary-foreground'
@@ -327,7 +370,7 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
                 </div>
                 
                 {!message.isBot && (
-                  <Avatar className="h-8 w-8">
+                  <Avatar className="h-8 w-8 flex-shrink-0">
                     <AvatarFallback className="bg-secondary text-secondary-foreground">
                       <User className="h-4 w-4" />
                     </AvatarFallback>
@@ -346,7 +389,7 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
                 <div className="bg-muted rounded-lg px-3 py-2 text-sm">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                    <span className="text-muted-foreground">Searching and analyzing...</span>
+                    <span className="text-muted-foreground">Searching...</span>
                   </div>
                 </div>
               </div>
@@ -356,13 +399,13 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
           </div>
         </ScrollArea>
 
-        <div className="border-t p-4">
+        <div className="border-t p-4 bg-card">
           <div className="flex gap-2">
             <Input
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Ask about algorithms, data structures..."
+              placeholder="Ask about DSA..."
               className="flex-1"
               disabled={isLoading}
             />
@@ -375,8 +418,205 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
             </Button>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    );
+  }
+
+  // Desktop resizable mode
+  return (
+    <Rnd
+      size={chatbotSize}
+      position={chatbotPosition}
+      onDragStop={(e, d) => setChatbotPosition({ x: d.x, y: d.y })}
+      onResizeStop={(e, direction, ref, delta, position) => {
+        setChatbotSize({
+          width: parseInt(ref.style.width),
+          height: parseInt(ref.style.height),
+        });
+        setChatbotPosition(position);
+      }}
+      minWidth={360}
+      minHeight={400}
+      maxWidth={800}
+      maxHeight={window.innerHeight - 100}
+      bounds="window"
+      dragHandleClassName="chatbot-drag-handle"
+      className="z-50"
+      enableResizing={{
+        top: false,
+        right: true,
+        bottom: true,
+        left: true,
+        topRight: false,
+        bottomRight: true,
+        bottomLeft: true,
+        topLeft: false,
+      }}
+      resizeHandleStyles={{
+        right: {
+          width: '8px',
+          right: '0',
+          cursor: 'ew-resize',
+        },
+        bottom: {
+          height: '8px',
+          bottom: '0',
+          cursor: 'ns-resize',
+        },
+        bottomRight: {
+          width: '16px',
+          height: '16px',
+          right: '0',
+          bottom: '0',
+          cursor: 'nwse-resize',
+        },
+        bottomLeft: {
+          width: '16px',
+          height: '16px',
+          left: '0',
+          bottom: '0',
+          cursor: 'nesw-resize',
+        },
+        left: {
+          width: '8px',
+          left: '0',
+          cursor: 'ew-resize',
+        },
+      }}
+      resizeHandleComponent={{
+        right: <div className="absolute right-0 top-0 bottom-0 w-2 hover:bg-primary/20 transition-colors" />,
+        bottom: <div className="absolute bottom-0 left-0 right-0 h-2 hover:bg-primary/20 transition-colors" />,
+        bottomRight: (
+          <div className="absolute bottom-0 right-0 w-4 h-4 bg-primary/30 hover:bg-primary/50 rounded-tl-lg transition-colors flex items-center justify-center">
+            <GripVertical className="w-3 h-3 text-primary-foreground" />
+          </div>
+        ),
+        bottomLeft: (
+          <div className="absolute bottom-0 left-0 w-4 h-4 bg-primary/30 hover:bg-primary/50 rounded-tr-lg transition-colors" />
+        ),
+        left: <div className="absolute left-0 top-0 bottom-0 w-2 hover:bg-primary/20 transition-colors" />,
+      }}
+    >
+      <Card className={cn(
+        "h-full shadow-2xl border-2 border-primary/20 bg-card/95 backdrop-blur-sm flex flex-col",
+        "transition-all duration-200"
+      )}>
+        <CardHeader className="pb-2 chatbot-drag-handle cursor-move hover:bg-primary/5 transition-colors border-b">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5 text-primary" />
+              <span>DSA Assistant</span>
+            </CardTitle>
+            <div className="flex gap-1">
+              <Button variant="ghost" size="sm" onClick={onToggleMinimize}>
+                <Minimize2 className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onClose}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="flex-1 flex flex-col p-0 min-h-0">
+          <ScrollArea className="flex-1 px-4">
+            <div className="space-y-4 py-2">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex gap-3 ${message.isBot ? 'justify-start' : 'justify-end'}`}
+                >
+                  {message.isBot && (
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        <Bot className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                  
+                  <div
+                    className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                      message.isBot
+                        ? 'bg-muted text-foreground'
+                        : 'bg-primary text-primary-foreground'
+                    }`}
+                  >
+                    {message.isBot ? (
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                          strong: ({ children }) => <strong className="font-semibold text-primary">{children}</strong>,
+                          em: ({ children }) => <em className="text-muted-foreground">{children}</em>,
+                          ul: ({ children }) => <ul className="list-disc pl-4 space-y-1">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal pl-4 space-y-1">{children}</ol>,
+                          li: ({ children }) => <li className="text-sm">{children}</li>,
+                          code: ({ children }) => (
+                            <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">{children}</code>
+                          ),
+                          pre: ({ children }) => (
+                            <pre className="bg-muted p-3 rounded-lg overflow-x-auto text-xs font-mono mt-2">{children}</pre>
+                          )
+                        }}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    ) : (
+                      <div className="whitespace-pre-wrap">{message.content}</div>
+                    )}
+                  </div>
+                  
+                  {!message.isBot && (
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-secondary text-secondary-foreground">
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                </div>
+              ))}
+              
+              {isLoading && (
+                <div className="flex gap-3">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      <Bot className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="bg-muted rounded-lg px-3 py-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      <span className="text-muted-foreground">Analyzing...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div ref={messagesEndRef} />
+            </div>
+          </ScrollArea>
+
+          <div className="border-t p-4">
+            <div className="flex gap-2">
+              <Input
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask about algorithms, data structures..."
+                className="flex-1"
+                disabled={isLoading}
+              />
+              <Button 
+                onClick={handleSendMessage} 
+                disabled={isLoading || !inputValue.trim()}
+                size="sm"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </Rnd>
   );
 };
 
