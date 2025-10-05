@@ -424,15 +424,15 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
     );
   }
 
-  // Desktop resizable mode - ANCHORED TO BOTTOM
+  // Desktop resizable mode - ANCHORED TO VIEWPORT BOTTOM (fixed position)
   return (
     <Rnd
       size={chatbotSize}
       position={chatbotPosition}
       onDragStop={(e, d) => {
-        // Keep bottom anchored by adjusting y position based on height
-        const windowHeight = window.innerHeight;
-        const newY = windowHeight - chatbotSize.height - 24;
+        // Keep bottom anchored to viewport by adjusting y position based on height
+        const viewportHeight = window.innerHeight;
+        const newY = viewportHeight - chatbotSize.height - 24;
         setChatbotPosition({ x: d.x, y: newY });
       }}
       onResizeStop={(e, direction, ref, delta, position) => {
@@ -444,17 +444,18 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
           height: newHeight,
         });
         
-        // Keep bottom anchored when resizing
-        const windowHeight = window.innerHeight;
-        const newY = windowHeight - newHeight - 24;
+        // Keep bottom anchored to viewport when resizing
+        const viewportHeight = window.innerHeight;
+        const newY = viewportHeight - newHeight - 24;
         setChatbotPosition({ x: position.x, y: newY });
       }}
       minWidth={360}
       minHeight={400}
       maxWidth={800}
       maxHeight={window.innerHeight - 100}
-      bounds="window"
+      bounds="parent"
       dragHandleClassName="chatbot-drag-handle"
+      style={{ position: 'fixed' }}
       className="z-50"
       enableResizing={{
         top: true,
