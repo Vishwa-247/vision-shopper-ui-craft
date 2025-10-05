@@ -7,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import { Star, Brain, Code, Target, MessageCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface InlineFeedbackProps {
   isExpanded: boolean;
@@ -57,12 +58,59 @@ const InlineFeedback = ({ isExpanded, onToggle, problemName, difficulty, company
     setIsSubmitting(true);
 
     try {
-      // TODO: Replace with API call to FastAPI backend
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Map experience to rating (1-5)
+      const experienceToRating: Record<string, number> = {
+        "very-easy": 5,
+        "easy": 4,
+        "moderate": 3,
+        "challenging": 2,
+        "very-hard": 1
+      };
+
+      const rating = experienceToRating[experience] || 3;
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Please sign in",
+          description: "You need to be signed in to submit feedback",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Save feedback to database
+      const { data: savedFeedback, error: dbError } = await supabase
+        .from('dsa_feedbacks')
+        .insert({
+          user_id: user.id,
+          problem_id: problemName.toLowerCase().replace(/\s+/g, '-'),
+          problem_name: problemName,
+          difficulty: difficulty.toLowerCase(),
+          category: company,
+          rating: rating,
+          time_spent: null,
+          struggled_areas: struggledAreas,
+          detailed_feedback: detailedFeedback || `Experience: ${experience}`
+        })
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+
+      // Generate AI suggestions in background
+      supabase.functions.invoke('generate-feedback-suggestions', {
+        body: { feedbackId: savedFeedback.id }
+      }).then(({ error }) => {
+        if (error) {
+          console.error('Error generating AI suggestions:', error);
+        }
+      });
 
       toast({
         title: "Feedback submitted successfully!",
-        description: "Our AI agents will analyze your feedback to provide better learning experiences.",
+        description: "AI suggestions are being generated. Check the Feedback tab shortly.",
       });
 
       // Reset form
@@ -72,8 +120,10 @@ const InlineFeedback = ({ isExpanded, onToggle, problemName, difficulty, company
       onSubmit?.();
       onToggle();
     } catch (error) {
+      console.error("Error submitting feedback:", error);
       toast({
         title: "Failed to submit feedback",
+        description: error instanceof Error ? error.message : "Please try again",
         variant: "destructive"
       });
     } finally {

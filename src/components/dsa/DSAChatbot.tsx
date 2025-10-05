@@ -56,8 +56,10 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
     if (typeof window === 'undefined') return { x: 0, y: 0 };
     const width = window.innerWidth;
     const height = window.innerHeight;
-    if (width < 640) return { x: 16, y: 50 };
-    return { x: width - 444, y: height - 650 };
+    const defaultSize = getDefaultSize();
+    if (width < 640) return { x: 16, y: height - defaultSize.height - 24 };
+    // Position at bottom-right corner
+    return { x: width - defaultSize.width - 24, y: height - defaultSize.height - 24 };
   };
 
   // Load saved size/position from localStorage
@@ -422,18 +424,30 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
     );
   }
 
-  // Desktop resizable mode
+  // Desktop resizable mode - ANCHORED TO BOTTOM
   return (
     <Rnd
       size={chatbotSize}
       position={chatbotPosition}
-      onDragStop={(e, d) => setChatbotPosition({ x: d.x, y: d.y })}
+      onDragStop={(e, d) => {
+        // Keep bottom anchored by adjusting y position based on height
+        const windowHeight = window.innerHeight;
+        const newY = windowHeight - chatbotSize.height - 24;
+        setChatbotPosition({ x: d.x, y: newY });
+      }}
       onResizeStop={(e, direction, ref, delta, position) => {
+        const newHeight = parseInt(ref.style.height);
+        const newWidth = parseInt(ref.style.width);
+        
         setChatbotSize({
-          width: parseInt(ref.style.width),
-          height: parseInt(ref.style.height),
+          width: newWidth,
+          height: newHeight,
         });
-        setChatbotPosition(position);
+        
+        // Keep bottom anchored when resizing
+        const windowHeight = window.innerHeight;
+        const newY = windowHeight - newHeight - 24;
+        setChatbotPosition({ x: position.x, y: newY });
       }}
       minWidth={360}
       minHeight={400}
@@ -443,58 +457,42 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
       dragHandleClassName="chatbot-drag-handle"
       className="z-50"
       enableResizing={{
-        top: false,
-        right: true,
-        bottom: true,
+        top: true,
+        right: false,
+        bottom: false,
         left: true,
         topRight: false,
-        bottomRight: true,
-        bottomLeft: true,
-        topLeft: false,
+        bottomRight: false,
+        bottomLeft: false,
+        topLeft: true,
       }}
       resizeHandleStyles={{
-        right: {
-          width: '8px',
-          right: '0',
-          cursor: 'ew-resize',
-        },
-        bottom: {
+        top: {
           height: '8px',
-          bottom: '0',
+          top: '0',
           cursor: 'ns-resize',
-        },
-        bottomRight: {
-          width: '16px',
-          height: '16px',
-          right: '0',
-          bottom: '0',
-          cursor: 'nwse-resize',
-        },
-        bottomLeft: {
-          width: '16px',
-          height: '16px',
-          left: '0',
-          bottom: '0',
-          cursor: 'nesw-resize',
         },
         left: {
           width: '8px',
           left: '0',
           cursor: 'ew-resize',
         },
+        topLeft: {
+          width: '16px',
+          height: '16px',
+          left: '0',
+          top: '0',
+          cursor: 'nwse-resize',
+        },
       }}
       resizeHandleComponent={{
-        right: <div className="absolute right-0 top-0 bottom-0 w-2 hover:bg-primary/20 transition-colors" />,
-        bottom: <div className="absolute bottom-0 left-0 right-0 h-2 hover:bg-primary/20 transition-colors" />,
-        bottomRight: (
-          <div className="absolute bottom-0 right-0 w-4 h-4 bg-primary/30 hover:bg-primary/50 rounded-tl-lg transition-colors flex items-center justify-center">
+        top: <div className="absolute top-0 left-0 right-0 h-2 hover:bg-primary/20 transition-colors" />,
+        left: <div className="absolute left-0 top-0 bottom-0 w-2 hover:bg-primary/20 transition-colors" />,
+        topLeft: (
+          <div className="absolute top-0 left-0 w-4 h-4 bg-primary/30 hover:bg-primary/50 rounded-br-lg transition-colors flex items-center justify-center">
             <GripVertical className="w-3 h-3 text-primary-foreground" />
           </div>
         ),
-        bottomLeft: (
-          <div className="absolute bottom-0 left-0 w-4 h-4 bg-primary/30 hover:bg-primary/50 rounded-tr-lg transition-colors" />
-        ),
-        left: <div className="absolute left-0 top-0 bottom-0 w-2 hover:bg-primary/20 transition-colors" />,
       }}
     >
       <Card className={cn(
