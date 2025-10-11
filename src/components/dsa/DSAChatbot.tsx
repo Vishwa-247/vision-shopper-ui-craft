@@ -57,9 +57,12 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
     const width = window.innerWidth;
     const height = window.innerHeight;
     const defaultSize = getDefaultSize();
-    if (width < 640) return { x: 16, y: height - defaultSize.height - 24 };
-    // Position at bottom-right corner
-    return { x: width - defaultSize.width - 24, y: height - defaultSize.height - 24 };
+    
+    // Always position at bottom-right, with padding
+    const x = width - defaultSize.width - 24;
+    const y = height - defaultSize.height - 24;
+    
+    return { x, y };
   };
 
   // Load saved size/position from localStorage
@@ -76,6 +79,12 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
     const saved = localStorage.getItem(`chatbot-position-${deviceType}`);
     return saved ? JSON.parse(saved) : getDefaultPosition();
   });
+
+  // Reset position when component mounts to ensure visibility
+  useEffect(() => {
+    const defaultPos = getDefaultPosition();
+    setChatbotPosition(defaultPos);
+  }, []);
 
   // Save size/position to localStorage
   useEffect(() => {
@@ -430,30 +439,44 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
       size={chatbotSize}
       position={chatbotPosition}
       onDragStop={(e, d) => {
-        // Keep bottom anchored to viewport by adjusting y position based on height
         const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+        
+        // Constrain x position within viewport
+        let newX = d.x;
+        newX = Math.max(16, newX); // Left boundary
+        newX = Math.min(viewportWidth - chatbotSize.width - 16, newX); // Right boundary
+        
+        // Keep bottom anchored to viewport
         const newY = viewportHeight - chatbotSize.height - 24;
-        setChatbotPosition({ x: d.x, y: newY });
+        
+        setChatbotPosition({ x: newX, y: newY });
       }}
       onResizeStop={(e, direction, ref, delta, position) => {
         const newHeight = parseInt(ref.style.height);
         const newWidth = parseInt(ref.style.width);
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
         
         setChatbotSize({
           width: newWidth,
           height: newHeight,
         });
         
+        // Constrain x position within viewport
+        let newX = position.x;
+        newX = Math.max(16, newX); // Left boundary
+        newX = Math.min(viewportWidth - newWidth - 16, newX); // Right boundary
+        
         // Keep bottom anchored to viewport when resizing
-        const viewportHeight = window.innerHeight;
         const newY = viewportHeight - newHeight - 24;
-        setChatbotPosition({ x: position.x, y: newY });
+        
+        setChatbotPosition({ x: newX, y: newY });
       }}
       minWidth={360}
       minHeight={400}
       maxWidth={800}
       maxHeight={window.innerHeight - 100}
-      bounds="parent"
       dragHandleClassName="chatbot-drag-handle"
       style={{ position: 'fixed' }}
       className="z-50"
