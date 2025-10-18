@@ -54,9 +54,16 @@ async def lifespan(app: FastAPI):
         logger.info(f"📊 SupabaseManager instance exists: {supabase_manager is not None}")
         logger.info(f"📊 Supabase client exists: {supabase_manager.supabase is not None if supabase_manager else 'N/A'}")
         
+        # Connect the main supabase_manager instance
         await supabase_manager.connect()
         
+        # CRITICAL FIX: Also connect the global db_manager from supabase_connection.py
+        # This is used by all helper functions (create_user_profile, update_user_profile, etc.)
+        from shared.database.supabase_connection import db_manager
+        await db_manager.connect()
+        
         logger.info(f"✅ Connection pool created: {supabase_manager.pool is not None if supabase_manager else 'N/A'}")
+        logger.info(f"✅ Global db_manager pool created: {db_manager.pool is not None}")
         logger.info(f"✅ Supabase client ready: {supabase_manager.supabase is not None if supabase_manager else 'N/A'}")
         logger.info("🚀 Profile Service started successfully")
     except Exception as e:
@@ -67,7 +74,10 @@ async def lifespan(app: FastAPI):
     
     yield
     
+    # Disconnect both instances
     await supabase_manager.disconnect()
+    from shared.database.supabase_connection import db_manager
+    await db_manager.disconnect()
     logger.info("🛑 Profile Service shutdown complete")
 
 # Create FastAPI app with lifespan
