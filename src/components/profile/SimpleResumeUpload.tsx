@@ -20,66 +20,71 @@ const SimpleResumeUpload = () => {
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [aiStage, setAiStage] = useState<string>('');
+  const [isUploading, setIsUploading] = useState(false);
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    if (!file) return;
+  const onDrop = useCallback(
+    (acceptedFiles: File[]) => {
+      const file = acceptedFiles[0];
+      if (!file) return;
 
-    // File validation
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-      toast({
-        title: "File too large",
-        description: "Please select a file smaller than 10MB",
-        variant: "destructive",
-      });
-      return;
-    }
+      // Prevent duplicate uploads
+      if (isUploading || isProcessing) {
+        console.log(
+          "⚠️ [FRONTEND DEBUG] Upload already in progress, ignoring new file"
+        );
+        toast({
+          title: "Upload in Progress",
+          description: "Please wait for the current upload to complete.",
+          variant: "default",
+        });
+        return;
+      }
 
-    const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ];
-    
-    if (!allowedTypes.includes(file.type)) {
-      toast({
-        title: "Invalid file type",
-        description: "Please upload a PDF or Word document",
-        variant: "destructive",
-      });
-      return;
-    }
+      // File validation
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        toast({
+          title: "File too large",
+          description: "Please select a file smaller than 10MB",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    setCurrentFile(file);
-    processResume(file);
-  }, [toast]);
+      const allowedTypes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ];
 
-  const processResume = async (file: File) => {
-    console.log('🚀 [FRONTEND DEBUG] Starting resume processing...');
-    console.log('👤 [FRONTEND DEBUG] Profile userId:', profile?.userId);
-    console.log('👤 [FRONTEND DEBUG] User from useAuth:', user);
-    console.log('👤 [FRONTEND DEBUG] User ID:', user?.id);
-    console.log('👤 [FRONTEND DEBUG] User object keys:', user ? Object.keys(user) : 'No user object');
-    console.log('👤 [FRONTEND DEBUG] Auth loading state:', { loading: authLoading });
-    console.log('👤 [FRONTEND DEBUG] Full auth state:', { user, authLoading, profile });
-    
-    // Add authentication checks here
-    if (authLoading) {
-      console.log('⏳ [FRONTEND DEBUG] Authentication still loading...');
-      toast({
-        title: "Loading...",
-        description: "Please wait for authentication to complete.",
-        variant: "default",
-      });
-      return;
-    }
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          title: "Invalid file type",
+          description: "Please upload a PDF or Word document",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setCurrentFile(file);
+      processResume(file);
+    },
+    [toast]
+  );
+
+  const processResumeAfterAuth = async (file: File) => {
+    console.log(
+      "🚀 [FRONTEND DEBUG] Processing resume after auth completion..."
+    );
+    console.log("👤 [FRONTEND DEBUG] User after auth:", user?.id);
 
     if (!user?.id) {
-      console.error('❌ [FRONTEND DEBUG] No userId found in profile or user!');
-      console.error('❌ [FRONTEND DEBUG] User object:', user);
-      console.error('❌ [FRONTEND DEBUG] Auth loading:', authLoading);
-      console.error('❌ [FRONTEND DEBUG] This should NOT happen with your auth state!');
+      console.error(
+        "❌ [FRONTEND DEBUG] Still no userId after auth completion!"
+      );
+      setIsProcessing(false);
+      setUploadProgress(0);
+      setAiStage("");
       toast({
         title: "Authentication Error",
         description: "Please sign in to upload your resume.",
@@ -88,25 +93,34 @@ const SimpleResumeUpload = () => {
       return;
     }
 
-    console.log('✅ [FRONTEND DEBUG] User ID validation passed:', user.id);
+    console.log(
+      "✅ [FRONTEND DEBUG] User ID validation passed after auth:",
+      user.id
+    );
+    await processResumeCore(file);
+  };
 
-    // Remove profile dependency - we only need user.id for upload
-    console.log('✅ [FRONTEND DEBUG] Authentication check passed, proceeding with upload');
-    
+  const processResumeCore = async (file: File) => {
+    console.log(
+      "✅ [FRONTEND DEBUG] Authentication check passed, proceeding with upload"
+    );
+
     setIsProcessing(true);
+    setIsUploading(true);
     setUploadProgress(0);
 
     try {
-      console.log('🎬 [FRONTEND DEBUG] Starting AI processing simulation...');
+      console.log("🎬 [FRONTEND DEBUG] Starting AI processing simulation...");
       // AI Agent processing stages
       const stages = [
-                 "🔍 Scanning your resume...",
+        "🔍 Scanning your resume...",
         "🧠 AI is reading your content with built-in parser...",
         "📊 Extracting work experience...",
-        "🎓 Analyzing education history...",
-        "⚡ Identifying skills and technologies...",
-        "🏆 Processing certifications...",
-        "✨ Structuring your profile data..."
+        "🎯 Identifying skills and technologies...",
+        "📝 Analyzing education background...",
+        "🔍 Detecting certifications and projects...",
+        "📈 Calculating match score...",
+        "✨ Generating personalized insights...",
       ];
 
       let currentStageIndex = 0;
@@ -114,7 +128,7 @@ const SimpleResumeUpload = () => {
 
       // Progressive AI thinking simulation
       const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
+        setUploadProgress((prev) => {
           const newProgress = prev + 15;
           if (newProgress <= 90) {
             if (newProgress > currentStageIndex * 13) {
@@ -131,112 +145,377 @@ const SimpleResumeUpload = () => {
       }, 400);
 
       // Process the resume with Python backend + Groq AI
-      console.log('📁 [FRONTEND DEBUG] Processing file:', file.name, 'Size:', file.size);
-      console.log('🔗 [FRONTEND DEBUG] Calling uploadResume function...');
-      
+      console.log(
+        "📁 [FRONTEND DEBUG] Processing file:",
+        file.name,
+        "Size:",
+        file.size
+      );
+      console.log("🔗 [FRONTEND DEBUG] Calling uploadResume function...");
+
       const result = await uploadResume(file);
-      console.log('📋 [FRONTEND DEBUG] Upload result received:', result);
-      
+      console.log("📋 [FRONTEND DEBUG] Upload result received:", result);
+
       clearInterval(progressInterval);
       setUploadProgress(100);
       setAiStage("🎉 Analysis complete!");
-      
+      setIsUploading(false);
+
       if (result?.success) {
-        console.log('✅ [FRONTEND DEBUG] Upload successful, checking extracted data...');
-        console.log('📊 [FRONTEND DEBUG] Extracted data available:', !!result?.extracted_data);
-        
+        console.log(
+          "✅ [FRONTEND DEBUG] Upload successful, checking extracted data..."
+        );
+        console.log(
+          "📊 [FRONTEND DEBUG] Extracted data available:",
+          !!result?.extracted_data
+        );
+
         if (result?.extracted_data) {
-        // Show AI agent success toast
-        setTimeout(() => {
-          toast({
-            title: "🤖 AI Agent Ready!",
-            description: "I've analyzed your resume and extracted your profile data.",
-            duration: 4000,
-          });
-          
-          // Show auto-fill confirmation toast with action buttons
+          // Show AI agent success toast
           setTimeout(() => {
             toast({
-              title: "🎯 Auto-Fill Profile?",
-              description: "Should I automatically fill your profile with the extracted data?",
-              duration: 8000,
+              title: "🤖 AI Agent Ready!",
+              description:
+                "I've analyzed your resume and extracted your profile data.",
               action: (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      handleAutoFill(result.extracted_data);
-                    }}
-                    className="px-3 py-1 bg-primary text-primary-foreground rounded text-sm hover:bg-primary/90"
-                  >
-                    Yes, Fill Profile
-                  </button>
-                  <button
-                    onClick={() => {
-                      setCurrentFile(null);
-                      setUploadProgress(0);
-                      setIsProcessing(false);
-                      toast({
-                        title: "Resume Saved!",
-                        description: "Your resume is saved. You can fill your profile manually anytime.",
-                      });
-                    }}
-                    className="px-3 py-1 bg-secondary text-secondary-foreground rounded text-sm hover:bg-secondary/90"
-                  >
-                    Skip
-                  </button>
-                </div>
+                <button
+                  onClick={() => handleAutoFill(result.extracted_data)}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-1 rounded text-sm font-medium"
+                >
+                  Auto-Fill Profile
+                </button>
               ),
             });
           }, 1500);
-        }, 1000);
+        } else {
+          console.log(
+            "❌ [FRONTEND DEBUG] Upload failed - no extracted data available"
+          );
+          console.log("📋 [FRONTEND DEBUG] Result details:", {
+            success: result?.success,
+            message: result?.message,
+            hasExtractedData: !!result?.extracted_data,
+          });
+          throw new Error(
+            result?.message || "Upload failed - no extracted data available"
+          );
+        }
       } else {
-        console.log('❌ [FRONTEND DEBUG] Upload failed - no extracted data available');
-        console.log('📋 [FRONTEND DEBUG] Result details:', {
+        console.log("❌ [FRONTEND DEBUG] Upload not successful");
+        console.log("📋 [FRONTEND DEBUG] Result details:", {
           success: result?.success,
           message: result?.message,
-          hasExtractedData: !!result?.extracted_data
+          hasExtractedData: !!result?.extracted_data,
         });
-        throw new Error(result?.message || 'Upload failed - no extracted data available');
+        throw new Error(
+          result?.message ||
+            "Upload failed - server returned unsuccessful result"
+        );
       }
-    } else {
-      console.log('❌ [FRONTEND DEBUG] Upload not successful');
-      console.log('📋 [FRONTEND DEBUG] Result details:', {
-        success: result?.success,
-        message: result?.message,
-        hasExtractedData: !!result?.extracted_data
-      });
-      throw new Error(result?.message || 'Upload failed - server returned unsuccessful result');
-    }
-      
     } catch (error: any) {
-        console.error("❌ [FRONTEND DEBUG] Resume processing error:", error);
-        console.error("❌ [FRONTEND DEBUG] Error details:", {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
+      console.error("❌ [FRONTEND DEBUG] Resume processing error:", error);
+      console.error("❌ [FRONTEND DEBUG] Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
+      setIsProcessing(false);
+      setIsUploading(false);
+      setUploadProgress(0);
+      setAiStage("");
+
+      // Show specific error message based on error type
+      if (error.message?.includes("Unsupported file type")) {
+        console.log("❌ [FRONTEND DEBUG] File type error detected");
+        toast({
+          title: "Invalid File Type",
+          description: "Please upload a PDF or Word document (.pdf, .docx)",
+          variant: "destructive",
         });
-        setIsProcessing(false);
-        setUploadProgress(0);
-        setAiStage('');
-        
-        // Show specific error message based on error type
-        if (error.message?.includes('Unsupported file type')) {
-          console.log('❌ [FRONTEND DEBUG] File type error detected');
-          toast({
-            title: "❌ File Type Not Supported",
-            description: "Please upload a PDF or Word document (.pdf, .doc, .docx)",
-            variant: "destructive",
-            duration: 6000,
-          });
-        } else {
-          console.log('❌ [FRONTEND DEBUG] General processing error');
-          toast({
-            title: "🤖 Built-in AI Processing Failed",
-            description: error.message || "Resume analysis failed. The built-in parser couldn't extract data from your resume.",
-            variant: "destructive",
-            duration: 6000,
-          });
+      } else if (error.message?.includes("File too large")) {
+        console.log("❌ [FRONTEND DEBUG] File size error detected");
+        toast({
+          title: "File Too Large",
+          description: "Please upload a file smaller than 10MB",
+          variant: "destructive",
+        });
+      } else if (error.message?.includes("Authentication")) {
+        console.log("❌ [FRONTEND DEBUG] Authentication error detected");
+        toast({
+          title: "Authentication Error",
+          description: "Please sign in again to upload your resume.",
+          variant: "destructive",
+        });
+      } else {
+        console.log("❌ [FRONTEND DEBUG] Generic error detected");
+        toast({
+          title: "Upload Failed",
+          description:
+            error.message || "Something went wrong. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const processResume = async (file: File) => {
+    console.log("🚀 [FRONTEND DEBUG] Starting resume processing...");
+    console.log("👤 [FRONTEND DEBUG] Profile userId:", profile?.userId);
+    console.log("👤 [FRONTEND DEBUG] User from useAuth:", user);
+    console.log("👤 [FRONTEND DEBUG] User ID:", user?.id);
+    console.log(
+      "👤 [FRONTEND DEBUG] User object keys:",
+      user ? Object.keys(user) : "No user object"
+    );
+    console.log("👤 [FRONTEND DEBUG] Auth loading state:", {
+      loading: authLoading,
+    });
+    console.log("👤 [FRONTEND DEBUG] Full auth state:", {
+      user,
+      authLoading,
+      profile,
+    });
+
+    // Smart authentication check with retry logic
+    if (authLoading) {
+      console.log(
+        "⏳ [FRONTEND DEBUG] Authentication still loading, implementing smart wait..."
+      );
+
+      // Show loading state
+      setIsProcessing(true);
+      setUploadProgress(10);
+      setAiStage("🔐 Verifying authentication...");
+
+      // Smart retry: wait up to 3 seconds for auth to complete
+      let retryCount = 0;
+      const maxRetries = 15; // 3 seconds with 200ms intervals
+
+      const waitForAuth = async () => {
+        while (retryCount < maxRetries && authLoading) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          retryCount++;
+          console.log(
+            `⏳ [FRONTEND DEBUG] Auth retry ${retryCount}/${maxRetries}, loading: ${authLoading}`
+          );
         }
+
+        if (authLoading) {
+          console.error(
+            "❌ [FRONTEND DEBUG] Authentication timeout after 3 seconds"
+          );
+          setIsProcessing(false);
+          setUploadProgress(0);
+          setAiStage("");
+          toast({
+            title: "Authentication Timeout",
+            description: "Please refresh the page and try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Auth completed, continue with upload
+        console.log(
+          "✅ [FRONTEND DEBUG] Authentication completed, proceeding with upload"
+        );
+        await processResumeAfterAuth(file);
+      };
+
+      waitForAuth();
+      return;
+    }
+
+    if (!user?.id) {
+      console.error("❌ [FRONTEND DEBUG] No userId found in profile or user!");
+      console.error("❌ [FRONTEND DEBUG] User object:", user);
+      console.error("❌ [FRONTEND DEBUG] Auth loading:", authLoading);
+      console.error(
+        "❌ [FRONTEND DEBUG] This should NOT happen with your auth state!"
+      );
+      toast({
+        title: "Authentication Error",
+        description: "Please sign in to upload your resume.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log("✅ [FRONTEND DEBUG] User ID validation passed:", user.id);
+
+    // Remove profile dependency - we only need user.id for upload
+    console.log(
+      "✅ [FRONTEND DEBUG] Authentication check passed, proceeding with upload"
+    );
+
+    setIsProcessing(true);
+    setUploadProgress(0);
+
+    try {
+      console.log("🎬 [FRONTEND DEBUG] Starting AI processing simulation...");
+      // AI Agent processing stages
+      const stages = [
+        "🔍 Scanning your resume...",
+        "🧠 AI is reading your content with built-in parser...",
+        "📊 Extracting work experience...",
+        "🎓 Analyzing education history...",
+        "⚡ Identifying skills and technologies...",
+        "🏆 Processing certifications...",
+        "✨ Structuring your profile data...",
+      ];
+
+      let currentStageIndex = 0;
+      setAiStage(stages[currentStageIndex]);
+
+      // Progressive AI thinking simulation
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          const newProgress = prev + 15;
+          if (newProgress <= 90) {
+            if (newProgress > currentStageIndex * 13) {
+              currentStageIndex++;
+              if (currentStageIndex < stages.length) {
+                setAiStage(stages[currentStageIndex]);
+              }
+            }
+            return newProgress;
+          }
+          clearInterval(progressInterval);
+          return 90;
+        });
+      }, 400);
+
+      // Process the resume with Python backend + Groq AI
+      console.log(
+        "📁 [FRONTEND DEBUG] Processing file:",
+        file.name,
+        "Size:",
+        file.size
+      );
+      console.log("🔗 [FRONTEND DEBUG] Calling uploadResume function...");
+
+      const result = await uploadResume(file);
+      console.log("📋 [FRONTEND DEBUG] Upload result received:", result);
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+      setAiStage("🎉 Analysis complete!");
+      setIsUploading(false);
+
+      if (result?.success) {
+        console.log(
+          "✅ [FRONTEND DEBUG] Upload successful, checking extracted data..."
+        );
+        console.log(
+          "📊 [FRONTEND DEBUG] Extracted data available:",
+          !!result?.extracted_data
+        );
+
+        if (result?.extracted_data) {
+          // Show AI agent success toast
+          setTimeout(() => {
+            toast({
+              title: "🤖 AI Agent Ready!",
+              description:
+                "I've analyzed your resume and extracted your profile data.",
+              duration: 4000,
+            });
+
+            // Show auto-fill confirmation toast with action buttons
+            setTimeout(() => {
+              toast({
+                title: "🎯 Auto-Fill Profile?",
+                description:
+                  "Should I automatically fill your profile with the extracted data?",
+                duration: 8000,
+                action: (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        handleAutoFill(result.extracted_data);
+                      }}
+                      className="px-3 py-1 bg-primary text-primary-foreground rounded text-sm hover:bg-primary/90"
+                    >
+                      Yes, Fill Profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCurrentFile(null);
+                        setUploadProgress(0);
+                        setIsProcessing(false);
+                        toast({
+                          title: "Resume Saved!",
+                          description:
+                            "Your resume is saved. You can fill your profile manually anytime.",
+                        });
+                      }}
+                      className="px-3 py-1 bg-secondary text-secondary-foreground rounded text-sm hover:bg-secondary/90"
+                    >
+                      Skip
+                    </button>
+                  </div>
+                ),
+              });
+            }, 1500);
+          }, 1000);
+        } else {
+          console.log(
+            "❌ [FRONTEND DEBUG] Upload failed - no extracted data available"
+          );
+          console.log("📋 [FRONTEND DEBUG] Result details:", {
+            success: result?.success,
+            message: result?.message,
+            hasExtractedData: !!result?.extracted_data,
+          });
+          throw new Error(
+            result?.message || "Upload failed - no extracted data available"
+          );
+        }
+      } else {
+        console.log("❌ [FRONTEND DEBUG] Upload not successful");
+        console.log("📋 [FRONTEND DEBUG] Result details:", {
+          success: result?.success,
+          message: result?.message,
+          hasExtractedData: !!result?.extracted_data,
+        });
+        throw new Error(
+          result?.message ||
+            "Upload failed - server returned unsuccessful result"
+        );
+      }
+    } catch (error: any) {
+      console.error("❌ [FRONTEND DEBUG] Resume processing error:", error);
+      console.error("❌ [FRONTEND DEBUG] Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
+      setIsProcessing(false);
+      setIsUploading(false);
+      setUploadProgress(0);
+      setAiStage("");
+
+      // Show specific error message based on error type
+      if (error.message?.includes("Unsupported file type")) {
+        console.log("❌ [FRONTEND DEBUG] File type error detected");
+        toast({
+          title: "❌ File Type Not Supported",
+          description:
+            "Please upload a PDF or Word document (.pdf, .doc, .docx)",
+          variant: "destructive",
+          duration: 6000,
+        });
+      } else {
+        console.log("❌ [FRONTEND DEBUG] General processing error");
+        toast({
+          title: "🤖 Built-in AI Processing Failed",
+          description:
+            error.message ||
+            "Resume analysis failed. The built-in parser couldn't extract data from your resume.",
+          variant: "destructive",
+          duration: 6000,
+        });
+      }
     }
   };
 

@@ -70,6 +70,9 @@ export const useAuth = () => {
   useEffect(() => {
     console.log('Setting up auth state listener...');
     
+    // Prevent multiple simultaneous session checks
+    let isInitializing = false;
+    
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -81,6 +84,7 @@ export const useAuth = () => {
           session = null;
         }
         
+        // Immediately update auth state to reduce loading time
         updateAuthState(session, false);
 
         // Show welcome toast only for new sign-ins, not page refreshes
@@ -104,8 +108,14 @@ export const useAuth = () => {
       }
     );
 
-    // Get initial session
+    // Get initial session with optimized loading
     const getInitialSession = async () => {
+      if (isInitializing) {
+        console.log('⚠️ [AUTH DEBUG] Session check already in progress, skipping...');
+        return;
+      }
+      
+      isInitializing = true;
       try {
         console.log('Getting initial session...');
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -124,10 +134,14 @@ export const useAuth = () => {
           return;
         }
         
+        // Immediately update state to reduce loading time
         updateAuthState(session, false);
+        console.log('✅ Initial session loaded:', session ? 'authenticated' : 'not authenticated');
       } catch (error) {
         console.error('Error getting initial session:', error);
         updateAuthState(null, false);
+      } finally {
+        isInitializing = false;
       }
     };
 
@@ -137,7 +151,7 @@ export const useAuth = () => {
       console.log('Cleaning up auth subscription...');
       subscription.unsubscribe();
     };
-  }, [toast]);
+  }, [toast, hasShownWelcome]);
 
   const signIn = async (email: string, password: string) => {
     console.log('Starting sign in...');

@@ -122,38 +122,59 @@ export const useProfile = () => {
   };
 
   const uploadResume = async (file: File, jobRole?: string) => {
-    console.log('📤 uploadResume called:', { 
-      hasProfile: !!profile, 
+    console.log("📤 uploadResume called:", {
+      hasProfile: !!profile,
       hasUser: !!user,
       userId: user?.id,
       profileUserId: profile?.userId,
       userObject: user,
-      userKeys: user ? Object.keys(user) : 'No user object'
+      userKeys: user ? Object.keys(user) : "No user object",
     });
 
-    // Try to get user ID from useAuth first
-    let userId = user?.id;
-    
-    // If useAuth user is not available, try direct Supabase session check
-    if (!userId) {
-      console.log('⚠️ [FRONTEND DEBUG] useAuth user not available, checking Supabase session directly...');
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error('❌ [FRONTEND DEBUG] Supabase session error:', error);
-        } else if (session?.user?.id) {
-          userId = session.user.id;
-          console.log('✅ [FRONTEND DEBUG] Got user ID from Supabase session:', userId);
-        }
-      } catch (error) {
-        console.error('❌ [FRONTEND DEBUG] Error checking Supabase session:', error);
+    // Prioritize direct Supabase session check for more reliable user ID
+    let userId = null;
+
+    console.log(
+      "🔍 [FRONTEND DEBUG] Checking Supabase session directly for user ID..."
+    );
+    try {
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
+      if (error) {
+        console.error("❌ [FRONTEND DEBUG] Supabase session error:", error);
+      } else if (session?.user?.id) {
+        userId = session.user.id;
+        console.log(
+          "✅ [FRONTEND DEBUG] Got user ID from Supabase session:",
+          userId
+        );
       }
+    } catch (error) {
+      console.error(
+        "❌ [FRONTEND DEBUG] Error checking Supabase session:",
+        error
+      );
+    }
+
+    // Fallback to useAuth user if Supabase session fails
+    if (!userId && user?.id) {
+      userId = user.id;
+      console.log(
+        "⚠️ [FRONTEND DEBUG] Using useAuth user ID as fallback:",
+        userId
+      );
     }
 
     if (!userId) {
-      console.error('❌ [FRONTEND DEBUG] No userId found in profile or user! (from useProfile.ts)');
-      console.error('❌ [FRONTEND DEBUG] User object in useProfile:', user);
-      console.error('❌ [FRONTEND DEBUG] This should NOT happen with your auth state!');
+      console.error(
+        "❌ [FRONTEND DEBUG] No userId found in profile or user! (from useProfile.ts)"
+      );
+      console.error("❌ [FRONTEND DEBUG] User object in useProfile:", user);
+      console.error(
+        "❌ [FRONTEND DEBUG] This should NOT happen with your auth state!"
+      );
       toast({
         title: "Authentication Error",
         description: "Please sign in again to upload your resume.",
@@ -162,43 +183,48 @@ export const useProfile = () => {
       return;
     }
 
-    console.log('✅ [FRONTEND DEBUG] useProfile.ts - User ID validation passed:', userId);
+    console.log(
+      "✅ [FRONTEND DEBUG] useProfile.ts - User ID validation passed:",
+      userId
+    );
 
     // Remove profile dependency - we only need user.id for upload
-    console.log('✅ [FRONTEND DEBUG] Authentication check passed, proceeding with upload');
+    console.log(
+      "✅ [FRONTEND DEBUG] Authentication check passed, proceeding with upload"
+    );
 
     setIsLoading(true);
 
     try {
-      console.log('📤 Uploading resume to backend...');
+      console.log("📤 Uploading resume to backend...");
       const result = await profileService.uploadResume(file, userId);
 
       if (result.success) {
-        console.log('✅ Resume uploaded successfully');
+        console.log("✅ Resume uploaded successfully");
         toast({
           title: "Resume Uploaded!",
           description: "Your resume has been processed and analyzed.",
         });
-        
+
         // Reload profile to get updated data
         await loadProfile();
         return result;
       } else {
-        throw new Error(result?.message || 'Failed to extract profile data');
+        throw new Error(result?.message || "Failed to extract profile data");
       }
-
     } catch (error) {
-      console.error('❌ Failed to upload resume:', error);
-      console.error('📋 Full error:', {
+      console.error("❌ Failed to upload resume:", error);
+      console.error("📋 Full error:", {
         message: error?.message,
         stack: error?.stack,
         userId: userId,
-        fileName: file.name
+        fileName: file.name,
       });
 
       toast({
         title: "Error",
-        description: error?.message || "Failed to upload resume. Please try again.",
+        description:
+          error?.message || "Failed to upload resume. Please try again.",
         variant: "destructive",
       });
       throw error;
