@@ -70,7 +70,9 @@ export interface UserProfile {
   resumeData?: {
     filename: string;
     uploadDate: string;
-    parsedData?: any;
+    storagePath?: string;
+    fileSize?: number;
+    parsedData?: Record<string, unknown>;
     extractedText?: string;
     aiAnalysis?: string;
     skillGaps?: string[];

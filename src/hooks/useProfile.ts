@@ -58,6 +58,8 @@ export const useProfile = () => {
         profileData.resumeData = {
           filename: resumeData.filename,
           uploadDate: resumeData.upload_date,
+          storagePath: resumeData.file_path, // Use the correct storage path from backend
+          fileSize: resumeData.file_size,
           parsedData: resumeData.parsed_data,
           extractedText: resumeData.extracted_text,
           aiAnalysis: resumeData.ai_analysis,

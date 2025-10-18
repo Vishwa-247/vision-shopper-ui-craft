@@ -406,7 +406,8 @@ async def extract_profile_data(
             if formatted_data.get(section) and len(formatted_data.get(section, [])) > 0:
                 filled_fields += 1
         
-        confidence_score = (filled_fields / total_fields) * 100 if total_fields > 0 else 0
+        # Use 0-1 scale to avoid database overflow (NUMERIC(3,2) max is 9.99)
+        confidence_score = filled_fields / total_fields if total_fields > 0 else 0
         
         # Store extraction result
         try:
@@ -428,8 +429,8 @@ async def extract_profile_data(
             "success": True,
             "extraction_id": f"extraction_{user_id}_{int(datetime.now().timestamp())}",
             "extracted_data": formatted_data,
-            "confidence_score": round(confidence_score, 2),
-            "message": f"Successfully extracted profile data with {confidence_score:.1f}% completeness",
+            "confidence_score": round(confidence_score * 100, 2),  # Display as percentage
+            "message": f"Successfully extracted profile data with {confidence_score * 100:.1f}% completeness",
             "metadata": {
                 "filename": resume.filename,
                 "file_size": len(file_content),
@@ -439,7 +440,7 @@ async def extract_profile_data(
             }
         }
         
-        logger.info(f"✅ Profile extraction completed successfully with {confidence_score:.1f}% confidence")
+        logger.info(f"✅ Profile extraction completed successfully with {confidence_score * 100:.1f}% confidence")
         return result
         
     except HTTPException:
@@ -469,6 +470,10 @@ async def apply_extracted_data(user_id: str, extracted_data: Dict[str, Any]):
     """Apply extracted resume data to user profile"""
     try:
         logger.info(f"🔄 Applying extracted data for user: {user_id}")
+        logger.info(f"📋 Extracted data keys: {list(extracted_data.keys()) if extracted_data else 'None'}")
+        
+        if not extracted_data:
+            raise HTTPException(status_code=400, detail="No extracted data provided")
         
         # Apply the extracted data using the existing update endpoint
         await update_profile(user_id, extracted_data)

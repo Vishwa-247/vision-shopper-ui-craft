@@ -800,9 +800,9 @@ const SimpleResumeUpload = () => {
       {currentResume && !isProcessing && (
         <div className="space-y-4">
           <ResumeFilePreview
-            filePath={`user-uploads/${currentResume.filename}`}
+            filePath={currentResume.storagePath || `user-uploads/${currentResume.filename}`}
             fileName={currentResume.filename}
-            fileSize={0}
+            fileSize={currentResume.fileSize || 0}
             uploadDate={currentResume.uploadDate}
             onDelete={handleDelete}
           />

@@ -4,10 +4,12 @@ Test script for Profile Service backend
 Tests the extract-profile endpoint independently
 """
 
-import requests
 import json
-import sys
 import os
+import sys
+
+import requests
+
 
 def test_profile_service():
     """Test the Profile Service extract-profile endpoint"""
