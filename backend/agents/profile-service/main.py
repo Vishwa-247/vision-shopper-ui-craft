@@ -233,7 +233,7 @@ async def extract_profile_with_groq(resume_text: str) -> dict:
         
         response = groq_client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "You are an expert at extracting structured data from resumes. Always return valid JSON only."},
+                {"role": "system", "content": "You are an expert at extracting structured data from resumes. CRITICAL: Return ONLY valid JSON with no markdown, no explanations, no code blocks. Just the raw JSON object."},
                 {"role": "user", "content": prompt}
             ],
             model="llama-3.1-8b-instant",
@@ -241,12 +241,53 @@ async def extract_profile_with_groq(resume_text: str) -> dict:
             max_tokens=3000
         )
         
-        extracted_data = json.loads(response.choices[0].message.content.strip())
+        # NEW: Robust JSON extraction
+        content = response.choices[0].message.content.strip()
+        logger.info(f"🤖 Raw Groq response (first 200 chars): {content[:200]}")
+        
+        try:
+            # Try direct JSON parse first
+            extracted_data = json.loads(content)
+        except json.JSONDecodeError:
+            # Handle markdown code blocks: ```json ... ```
+            import re
+            json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
+            if json_match:
+                extracted_data = json.loads(json_match.group(1))
+            else:
+                # Try to find JSON object anywhere in the response
+                json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                if json_match:
+                    extracted_data = json.loads(json_match.group(0))
+                else:
+                    logger.error(f"❌ Could not extract JSON from response: {content[:500]}")
+                    raise Exception("AI returned non-JSON response. Please try again.")
+        
         return extracted_data
         
     except Exception as e:
         logger.error(f"Groq extraction failed: {e}")
         raise e
+
+def get_empty_profile_structure():
+    """Return empty profile structure as fallback"""
+    return {
+        "personal_info": {
+            "name": "",
+            "email": "",
+            "phone": "",
+            "location": "",
+            "linkedin": "",
+            "github": "",
+            "portfolio": ""
+        },
+        "professional_summary": "",
+        "skills": [],
+        "experience": [],
+        "education": [],
+        "projects": [],
+        "certifications": []
+    }
 
 @app.post("/extract-profile")
 async def extract_profile_data(
@@ -319,7 +360,13 @@ async def extract_profile_data(
             raise HTTPException(status_code=503, detail="AI extraction service not available")
         
         logger.info("🧠 Extracting profile data with Groq AI...")
-        extracted_data = await extract_profile_with_groq(resume_text)
+        try:
+            extracted_data = await extract_profile_with_groq(resume_text)
+        except Exception as groq_error:
+            logger.error(f"⚠️ Groq extraction failed: {groq_error}")
+            # Use empty structure but still save the resume text
+            extracted_data = get_empty_profile_structure()
+            logger.warning("📝 Using empty profile structure, resume text saved for manual review")
         
         # Transform extracted data to match frontend format
         formatted_data = {
@@ -398,8 +445,24 @@ async def extract_profile_data(
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
         logger.error(f"💥 Critical error in extract_profile: {e}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        logger.error(f"📋 Full traceback:\n{error_trace}")
+
+        # Provide helpful error message based on error type
+        if "groq_client" in str(e).lower() or "api" in str(e).lower():
+            raise HTTPException(
+                status_code=503, 
+                detail=f"AI service error: {str(e)}. Please check GROQ_API_KEY configuration."
+            )
+        elif "json" in str(e).lower():
+            raise HTTPException(
+                status_code=500,
+                detail=f"AI returned invalid format: {str(e)}. Please try uploading again."
+            )
+        else:
+            raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.post("/profile/{user_id}/apply-extraction")
 async def apply_extracted_data(user_id: str, extracted_data: Dict[str, Any]):

@@ -220,6 +220,27 @@ const SimpleResumeUpload = () => {
           description: "Please sign in again to upload your resume.",
           variant: "destructive",
         });
+      } else if (error.message?.includes('503') || error.message?.includes('AI service')) {
+        console.log("❌ [FRONTEND DEBUG] AI service error detected");
+        toast({
+          title: "AI Service Unavailable",
+          description: "AI extraction service is unavailable. Please ensure the backend is running and GROQ_API_KEY is configured.",
+          variant: "destructive",
+        });
+      } else if (error.message?.includes('invalid format') || error.message?.includes('JSON')) {
+        console.log("❌ [FRONTEND DEBUG] AI format error detected");
+        toast({
+          title: "AI Processing Error",
+          description: "AI returned unexpected format. Please try uploading your resume again.",
+          variant: "destructive",
+        });
+      } else if (error.message?.includes('500')) {
+        console.log("❌ [FRONTEND DEBUG] Backend error detected");
+        toast({
+          title: "Backend Processing Error",
+          description: "Backend processing error. Please check console for details and ensure all services are running.",
+          variant: "destructive",
+        });
       } else {
         console.log("❌ [FRONTEND DEBUG] Generic error detected");
         toast({
