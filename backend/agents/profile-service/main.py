@@ -50,10 +50,20 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Handle application startup and shutdown"""
     try:
+        logger.info("🔌 Attempting to connect to database...")
+        logger.info(f"📊 SupabaseManager instance exists: {supabase_manager is not None}")
+        logger.info(f"📊 Supabase client exists: {supabase_manager.supabase is not None if supabase_manager else 'N/A'}")
+        
         await supabase_manager.connect()
+        
+        logger.info(f"✅ Connection pool created: {supabase_manager.pool is not None if supabase_manager else 'N/A'}")
+        logger.info(f"✅ Supabase client ready: {supabase_manager.supabase is not None if supabase_manager else 'N/A'}")
         logger.info("🚀 Profile Service started successfully")
     except Exception as e:
-        logger.warning(f"⚠️ Database not available, running in offline mode: {e}")
+        logger.error(f"💥 Database connection failed: {e}")
+        logger.warning(f"⚠️ Database not available, running in offline mode")
+        import traceback
+        logger.error(f"📋 Traceback: {traceback.format_exc()}")
     
     yield
     
@@ -687,12 +697,23 @@ async def update_profile(user_id: str, profile_data: Dict[str, Any]):
         logger.info(f"💾 Updating profile for user: {user_id}")
 
         # Check if database is connected
-        if not supabase_manager or not supabase_manager.supabase:
-            logger.error("❌ Database not connected")
-            raise HTTPException(
-                status_code=503, 
-                detail="Database not connected"
-            )
+        if not supabase_manager:
+            logger.error("❌ SupabaseManager is None")
+            raise HTTPException(status_code=503, detail="Database manager not initialized")
+
+        if not supabase_manager.supabase:
+            logger.error("❌ Supabase client is None")
+            logger.error("💡 Check that SUPABASE_SERVICE_KEY is set in .env file")
+            logger.error("💡 Check that supabase-py library is installed: pip install supabase")
+            raise HTTPException(status_code=503, detail="Database client not initialized. Check environment variables and dependencies.")
+
+        if not supabase_manager.pool:
+            logger.warning("⚠️ Database pool is None, attempting to reconnect...")
+            try:
+                await supabase_manager.connect()
+            except Exception as reconnect_error:
+                logger.error(f"❌ Reconnection failed: {reconnect_error}")
+                raise HTTPException(status_code=503, detail=f"Database connection failed: {reconnect_error}")
         
         # Update main profile
         if "personalInfo" in profile_data:

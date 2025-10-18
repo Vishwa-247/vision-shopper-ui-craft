@@ -25,50 +25,50 @@ const SimpleResumeUpload = () => {
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
-      const file = acceptedFiles[0];
-      if (!file) return;
+    const file = acceptedFiles[0];
+    if (!file) return;
 
-      // Prevent duplicate uploads
-      if (isUploading || isProcessing) {
-        console.log(
-          "⚠️ [FRONTEND DEBUG] Upload already in progress, ignoring new file"
-        );
-        toast({
-          title: "Upload in Progress",
-          description: "Please wait for the current upload to complete.",
-          variant: "default",
-        });
-        return;
-      }
+    // Prevent duplicate uploads
+    if (isUploading || isProcessing) {
+      console.log(
+        "⚠️ [FRONTEND DEBUG] Upload already in progress, ignoring new file"
+      );
+      toast({
+        title: "Upload in Progress",
+        description: "Please wait for the current upload to complete.",
+        variant: "default",
+      });
+      return;
+    }
 
-      // File validation
-      const maxSize = 10 * 1024 * 1024; // 10MB
-      if (file.size > maxSize) {
-        toast({
-          title: "File too large",
-          description: "Please select a file smaller than 10MB",
-          variant: "destructive",
-        });
-        return;
-      }
+    // File validation
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      toast({
+        title: "File too large",
+        description: "Please select a file smaller than 10MB",
+        variant: "destructive",
+      });
+      return;
+    }
 
-      const allowedTypes = [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      ];
+    const allowedTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
 
-      if (!allowedTypes.includes(file.type)) {
-        toast({
-          title: "Invalid file type",
-          description: "Please upload a PDF or Word document",
-          variant: "destructive",
-        });
-        return;
-      }
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload a PDF or Word document",
+        variant: "destructive",
+      });
+      return;
+    }
 
-      setCurrentFile(file);
-      processResume(file);
+    setCurrentFile(file);
+    processResume(file);
     },
     [toast]
   );
@@ -336,7 +336,7 @@ const SimpleResumeUpload = () => {
     console.log(
       "✅ [FRONTEND DEBUG] Authentication check passed, proceeding with upload"
     );
-
+    
     setIsProcessing(true);
     setUploadProgress(0);
 
@@ -548,14 +548,15 @@ const SimpleResumeUpload = () => {
         }
       }
 
-      toast({
-        title: "🤖 AI Agent Working...",
-        description: "I'm now filling your profile sections with the extracted data.",
-        duration: 3000,
-      });
+    toast({
+      title: "🤖 AI Agent Working...",
+      description:
+        "I'm now filling your profile sections with the extracted data.",
+      duration: 3000,
+    });
 
-      const success = await applyExtractedData(extractedData);
-
+    const success = await applyExtractedData(extractedData);
+      
       if (success) {
         console.log('✅ Auto-fill completed successfully');
         setCurrentFile(null);

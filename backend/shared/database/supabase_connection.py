@@ -3,13 +3,14 @@ Supabase PostgreSQL connection module for StudyMate backend services
 Replaces MongoDB with Supabase PostgreSQL for unified database access
 """
 
-import os
 import asyncio
-from typing import Dict, List, Optional, Any
-import asyncpg
-from datetime import datetime
 import json
 import logging
+import os
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import asyncpg
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +22,29 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_KEY", os.getenv("SUPABAS
 class SupabaseManager:
     def __init__(self):
         self.pool: Optional[asyncpg.Pool] = None
-        # Also support Supabase client for storage operations
+        self.supabase = None
+        
+        # Check environment variables
+        logger.info(f"🔍 SUPABASE_URL: {SUPABASE_URL[:50]}..." if SUPABASE_URL else "❌ NOT SET")
+        logger.info(f"🔍 SUPABASE_SERVICE_ROLE_KEY: {'SET (' + str(len(SUPABASE_SERVICE_ROLE_KEY)) + ' chars)' if SUPABASE_SERVICE_ROLE_KEY else '❌ NOT SET'}")
+        
+        # Try to create Supabase client
         try:
+            if not SUPABASE_SERVICE_ROLE_KEY:
+                logger.error("❌ SUPABASE_SERVICE_KEY not found in environment variables")
+                logger.error("💡 Make sure your .env file has: SUPABASE_SERVICE_KEY=eyJhbGc...")
+                return
+                
             from supabase import create_client
-            self.supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) if SUPABASE_SERVICE_ROLE_KEY else None
-        except ImportError:
-            logger.warning("Supabase client not available")
-            self.supabase = None
+            self.supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+            logger.info("✅ Supabase client created successfully")
+        except ImportError as e:
+            logger.error(f"❌ Supabase library not installed: {e}")
+            logger.error("💡 Run: pip install supabase")
+        except Exception as e:
+            logger.error(f"❌ Failed to create Supabase client: {e}")
+            import traceback
+            logger.error(f"📋 Traceback: {traceback.format_exc()}")
         
     async def connect(self):
         """Create database connection pool"""
