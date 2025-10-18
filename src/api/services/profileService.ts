@@ -7,6 +7,7 @@ export interface ResumeUploadResponse {
   extracted_data: any;
   confidence_score: number;
   message: string;
+  user_id?: string; // Add user_id field for explicit userId passing
   metadata: {
     filename: string;
     file_size: number;

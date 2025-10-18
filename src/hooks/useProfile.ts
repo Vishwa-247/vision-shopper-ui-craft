@@ -203,6 +203,11 @@ export const useProfile = () => {
 
       if (result.success) {
         console.log("✅ Resume uploaded successfully");
+        console.log("📋 User ID in result:", result.user_id || userId);
+
+        // Ensure userId is in the result for later use
+        result.user_id = result.user_id || userId;
+
         toast({
           title: "Resume Uploaded!",
           description: "Your resume has been processed and analyzed.",
@@ -235,12 +240,25 @@ export const useProfile = () => {
     }
   };
 
-  const applyExtractedData = async (extractedData: ExtractedResumeData) => {
-    if (!user || !extractedData) return;
+  const applyExtractedData = async (extractedData: ExtractedResumeData, explicitUserId?: string) => {
+    // Use explicit userId if provided, otherwise fall back to context user
+    const userIdToUse = explicitUserId || user?.id;
+
+    if (!userIdToUse || !extractedData) {
+      console.error('❌ [APPLY DEBUG] Missing userId or extractedData:', {
+        hasUserId: !!userIdToUse,
+        hasExtractedData: !!extractedData,
+        contextUser: user?.id,
+        explicitUserId: explicitUserId
+      });
+      return false;
+    }
+
+    console.log('🔄 [APPLY DEBUG] Starting applyExtractedData with userId:', userIdToUse);
     
     setIsLoading(true);
     try {
-      const success = await profileService.applyExtractedData(user.id, extractedData);
+      const success = await profileService.applyExtractedData(userIdToUse, extractedData);
       
       if (success) {
         // Reload profile to get updated data

@@ -145,6 +145,13 @@ const SimpleResumeUpload = () => {
         );
 
         if (result?.extracted_data) {
+          // Store userId with extracted data for later use
+          const uploadedUserId = result.user_id || user?.id;
+          if (uploadedUserId) {
+            console.log('💾 [FRONTEND DEBUG] Stored userId for auto-fill:', uploadedUserId);
+            result.extracted_data._userId = uploadedUserId;
+          }
+
           // Show AI agent success toast
           setTimeout(() => {
             toast({
@@ -401,6 +408,13 @@ const SimpleResumeUpload = () => {
         );
 
         if (result?.extracted_data) {
+          // Store userId with extracted data for later use
+          const uploadedUserId = result.user_id || user?.id;
+          if (uploadedUserId) {
+            console.log('💾 [FRONTEND DEBUG] Stored userId for auto-fill:', uploadedUserId);
+            result.extracted_data._userId = uploadedUserId;
+          }
+
           // Show AI agent success toast
           setTimeout(() => {
             toast({
@@ -510,12 +524,20 @@ const SimpleResumeUpload = () => {
 
   const handleAutoFill = async (extractedData: ExtractedResumeData) => {
     try {
+      // Extract userId that was stored during upload
+      const userIdForApply = (extractedData as any)._userId || user?.id;
+
       console.log('🔄 Starting auto-fill with data:', {
         hasPersonalInfo: !!extractedData?.personalInfo,
         hasSkills: !!extractedData?.skills,
         hasExperience: !!extractedData?.experience,
-        hasEducation: !!extractedData?.education
+        hasEducation: !!extractedData?.education,
+        userId: userIdForApply
       });
+
+      if (!userIdForApply) {
+        throw new Error('User ID not available. Please try uploading the resume again.');
+      }
 
       // Check if profile already has data
       const hasExistingData = 
@@ -555,7 +577,7 @@ const SimpleResumeUpload = () => {
       duration: 3000,
     });
 
-    const success = await applyExtractedData(extractedData);
+    const success = await applyExtractedData(extractedData, userIdForApply);
       
       if (success) {
         console.log('✅ Auto-fill completed successfully');
