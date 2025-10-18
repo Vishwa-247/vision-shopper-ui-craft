@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { supabase } from "@/integrations/supabase/client";
 import { ExtractedResumeData } from "@/types/resume";
 import { Bot, FileText, Trash2, Upload } from "lucide-react";
 import { useCallback, useState } from "react";
@@ -72,33 +73,6 @@ const SimpleResumeUpload = () => {
     [toast]
   );
 
-  const processResumeAfterAuth = async (file: File) => {
-    console.log(
-      "🚀 [FRONTEND DEBUG] Processing resume after auth completion..."
-    );
-    console.log("👤 [FRONTEND DEBUG] User after auth:", user?.id);
-
-    if (!user?.id) {
-      console.error(
-        "❌ [FRONTEND DEBUG] Still no userId after auth completion!"
-      );
-      setIsProcessing(false);
-      setUploadProgress(0);
-      setAiStage("");
-      toast({
-        title: "Authentication Error",
-        description: "Please sign in to upload your resume.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    console.log(
-      "✅ [FRONTEND DEBUG] User ID validation passed after auth:",
-      user.id
-    );
-    await processResumeCore(file);
-  };
 
   const processResumeCore = async (file: File) => {
     console.log(
@@ -276,54 +250,48 @@ const SimpleResumeUpload = () => {
       profile,
     });
 
-    // Smart authentication check with retry logic
+    // Smart authentication check - use direct Supabase session check
     if (authLoading) {
-      console.log(
-        "⏳ [FRONTEND DEBUG] Authentication still loading, implementing smart wait..."
-      );
+      console.log('⏳ [FRONTEND DEBUG] Auth loading, checking Supabase session directly...');
 
-      // Show loading state
       setIsProcessing(true);
       setUploadProgress(10);
-      setAiStage("🔐 Verifying authentication...");
+      setAiStage('🔐 Verifying authentication...');
 
-      // Smart retry: wait up to 3 seconds for auth to complete
-      let retryCount = 0;
-      const maxRetries = 15; // 3 seconds with 200ms intervals
+      try {
+        // Direct Supabase session check - more reliable than waiting for useAuth
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-      const waitForAuth = async () => {
-        while (retryCount < maxRetries && authLoading) {
-          await new Promise((resolve) => setTimeout(resolve, 200));
-          retryCount++;
-          console.log(
-            `⏳ [FRONTEND DEBUG] Auth retry ${retryCount}/${maxRetries}, loading: ${authLoading}`
-          );
-        }
-
-        if (authLoading) {
-          console.error(
-            "❌ [FRONTEND DEBUG] Authentication timeout after 3 seconds"
-          );
+        if (error || !session?.user?.id) {
+          console.error('❌ [FRONTEND DEBUG] No valid session found');
           setIsProcessing(false);
+          setIsUploading(false);
           setUploadProgress(0);
-          setAiStage("");
+          setAiStage('');
           toast({
-            title: "Authentication Timeout",
-            description: "Please refresh the page and try again.",
+            title: "Authentication Required",
+            description: "Please sign in to upload your resume.",
             variant: "destructive",
           });
           return;
         }
 
-        // Auth completed, continue with upload
-        console.log(
-          "✅ [FRONTEND DEBUG] Authentication completed, proceeding with upload"
-        );
-        await processResumeAfterAuth(file);
-      };
-
-      waitForAuth();
-      return;
+        console.log('✅ [FRONTEND DEBUG] Session verified, user ID:', session.user.id);
+        await processResumeCore(file);
+        return;
+      } catch (error) {
+        console.error('❌ [FRONTEND DEBUG] Session check failed:', error);
+        setIsProcessing(false);
+        setIsUploading(false);
+        setUploadProgress(0);
+        setAiStage('');
+        toast({
+          title: "Authentication Error",
+          description: "Please refresh the page and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     if (!user?.id) {
