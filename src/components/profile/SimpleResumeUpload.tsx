@@ -517,6 +517,37 @@ const SimpleResumeUpload = () => {
         hasEducation: !!extractedData?.education
       });
 
+      // Check if profile already has data
+      const hasExistingData = 
+        profile?.personalInfo?.fullName ||
+        profile?.education?.length > 0 ||
+        profile?.experience?.length > 0 ||
+        profile?.skills?.length > 0;
+
+      if (hasExistingData) {
+        // Show confirmation dialog
+        const confirmed = window.confirm(
+          '⚠️ Your profile already contains data.\n\n' +
+          'Auto-filling will OVERWRITE your existing:\n' +
+          '• Personal Information\n' +
+          '• Education\n' +
+          '• Work Experience\n' +
+          '• Skills\n' +
+          '• Projects\n' +
+          '• Certifications\n\n' +
+          'Do you want to continue and overwrite your current profile data?'
+        );
+
+        if (!confirmed) {
+          toast({
+            title: "Auto-Fill Cancelled",
+            description: "Your existing profile data has been preserved.",
+            duration: 3000,
+          });
+          return;
+        }
+      }
+
       toast({
         title: "🤖 AI Agent Working...",
         description: "I'm now filling your profile sections with the extracted data.",

@@ -499,8 +499,24 @@ async def apply_extracted_data(user_id: str, extracted_data: Dict[str, Any]):
         if not extracted_data:
             raise HTTPException(status_code=400, detail="No extracted data provided")
         
-        # Apply the extracted data using the existing update endpoint
-        await update_profile(user_id, extracted_data)
+        # TRANSFORM DATA: Convert between different naming conventions
+        transformed_data = {}
+
+        # Handle personalInfo / personal_info
+        if "personalInfo" in extracted_data:
+            transformed_data["personalInfo"] = extracted_data["personalInfo"]
+        elif "personal_info" in extracted_data:
+            transformed_data["personalInfo"] = extracted_data["personal_info"]
+
+        # Copy other sections (they should match)
+        for key in ["education", "experience", "projects", "skills", "certifications", "summary"]:
+            if key in extracted_data:
+                transformed_data[key] = extracted_data[key]
+
+        logger.info(f"✅ Transformed data keys: {list(transformed_data.keys())}")
+
+        # Apply the transformed data using the existing update endpoint
+        await update_profile(user_id, transformed_data)
         
         # Mark extraction as applied
         try:

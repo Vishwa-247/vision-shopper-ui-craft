@@ -400,7 +400,10 @@ export const profileService = {
 
   async applyExtractedData(userId: string, extractedData: any): Promise<boolean> {
     try {
-      console.log('📋 Applying extracted data:', extractedData);
+      console.log('📋 [APPLY DEBUG] Starting to apply extracted data');
+      console.log('📋 [APPLY DEBUG] User ID:', userId);
+      console.log('📋 [APPLY DEBUG] Extracted data keys:', Object.keys(extractedData || {}));
+      console.log('📋 [APPLY DEBUG] Full extracted data:', extractedData);
       
       // Call Python backend to apply extracted data
       const response = await fetch(`http://localhost:8006/profile/${userId}/apply-extraction`, {
@@ -411,15 +414,26 @@ export const profileService = {
         body: JSON.stringify(extractedData),
       });
 
+      console.log('📡 [APPLY DEBUG] Response status:', response.status);
+      console.log('📡 [APPLY DEBUG] Response OK:', response.ok);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        console.error('❌ [APPLY DEBUG] Backend error:', errorData);
         throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       const result = await response.json();
-      return result.success;
+      console.log('✅ [APPLY DEBUG] Backend result:', result);
+      console.log('✅ [APPLY DEBUG] Success value:', result.success);
+
+      return result.success === true; // Explicit boolean check
     } catch (error) {
-      console.error('Failed to apply extracted data:', error);
+      console.error('❌ [APPLY DEBUG] Failed to apply extracted data:', error);
+      console.error('📋 [APPLY DEBUG] Error details:', {
+        message: error?.message,
+        stack: error?.stack
+      });
       return false;
     }
   },
