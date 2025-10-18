@@ -261,7 +261,9 @@ async def extract_profile_with_groq(resume_text: str) -> dict:
                     extracted_data = json.loads(json_match.group(0))
                 else:
                     logger.error(f"❌ Could not extract JSON from response: {content[:500]}")
-                    raise Exception("AI returned non-JSON response. Please try again.")
+                    # Return empty structure instead of raising error to prevent upload failure
+                    logger.warning("📝 Using empty profile structure due to AI extraction failure")
+                    return get_empty_profile_structure()
         
         return extracted_data
         
@@ -305,6 +307,14 @@ async def extract_profile_data(
                 status_code=503, 
                 detail="Database not connected"
             )
+        
+        # Test database connection
+        try:
+            db_status = await db_health_check()
+            if not db_status.get("status") == "healthy":
+                logger.warning(f"⚠️ Database health check failed: {db_status}")
+        except Exception as db_test_error:
+            logger.warning(f"⚠️ Database health check error: {db_test_error}")
         
         # Read file content
         file_content = await resume.read()
@@ -411,18 +421,32 @@ async def extract_profile_data(
         
         # Store extraction result
         try:
+            # VALIDATE confidence_score before saving
+            if not isinstance(confidence_score, (int, float)):
+                logger.error(f"❌ Invalid confidence_score type: {type(confidence_score)}")
+                confidence_score = 0.0
+
+            if confidence_score < 0 or confidence_score > 1:
+                logger.warning(f"⚠️ Confidence score out of range: {confidence_score}, clamping to 0-1")
+                confidence_score = max(0.0, min(1.0, confidence_score))
+
             extraction_record = {
                 "user_id": user_id,
                 "extracted_data": formatted_data,
-                "confidence_score": confidence_score,
+                "confidence_score": round(confidence_score, 4),  # Round to 4 decimal places
                 "status": "completed",
                 "extraction_type": "groq_ai"
             }
-            
+
             supabase_manager.supabase.table('resume_extractions').insert(extraction_record).execute()
-            logger.info("💾 Extraction result saved to database")
+            logger.info(f"💾 Extraction result saved with confidence: {confidence_score:.4f}")
         except Exception as db_error:
-            logger.warning(f"⚠️ Failed to save extraction result: {db_error}")
+            import traceback
+            logger.error(f"❌ Failed to save extraction result: {db_error}")
+            logger.error(f"📋 Full error details: {traceback.format_exc()}")
+            logger.error(f"📊 Attempted confidence_score value: {confidence_score}")
+            logger.error(f"📊 Confidence_score type: {type(confidence_score)}")
+            # Continue anyway - extraction succeeded even if DB save failed
         
         # Prepare response
         result = {

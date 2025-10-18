@@ -102,7 +102,7 @@ export const profileService = {
         resumeData: resumeData.data ? {
           filename: resumeData.data.filename,
           uploadDate: resumeData.data.upload_date,
-          parsedData: resumeData.data.ai_analysis,
+          parsedData: resumeData.data.ai_analysis as Record<string, unknown>,
           extractedText: resumeData.data.extracted_text || '',
           aiAnalysis: typeof resumeData.data.ai_analysis === 'string' 
             ? resumeData.data.ai_analysis 
