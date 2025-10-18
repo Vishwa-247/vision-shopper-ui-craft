@@ -84,3 +84,11 @@ temp/
 .kiro/steering/byterover-rules.md
 .qoder/rules/byterover-rules.md
 .augment/rules/byterover-rules.md
+
+# Large model files
+*.pt
+*.pth
+*.h5
+*.pkl
+*.joblib
+backend/agents/emotion-detection/models/
