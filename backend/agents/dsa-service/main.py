@@ -8,6 +8,7 @@ import json
 import csv
 import io
 import os
+import re
 import httpx
 from pymongo import MongoClient
 from bson import ObjectId
@@ -813,7 +814,7 @@ async def generate_suggestions_endpoint(feedback: FeedbackRequest):
 
 @app.post("/feedback/chatbot-response")
 async def chatbot_response_endpoint(request: ChatbotRequest):
-    """Generate contextual chatbot response"""
+    """Generate contextual chatbot response with smart feedback handling"""
     try:
         print(f"\n{'='*60}")
         print(f"💬 CHATBOT REQUEST")
@@ -824,19 +825,124 @@ async def chatbot_response_endpoint(request: ChatbotRequest):
         print(f"📊 User Level: {request.user_level}")
         print(f"{'='*60}\n")
 
+        query_lower = request.query.lower()
+        
+        # Check if user is asking about feedbacks/progress
+        feedback_keywords = ['feedback', 'progress', 'history', 'review', 'analyze', 'problems solved']
+        is_feedback_query = any(keyword in query_lower for keyword in feedback_keywords)
+        
+        # Check if user is selecting a specific feedback by number
+        feedback_selection = None
+        number_match = re.search(r'\b(\d+)\b', request.query)
+        if number_match:
+            feedback_selection = int(number_match.group(1))
+        
         print("📚 Fetching user's feedback history...")
         feedback_history = await get_user_feedback_history(request.user_id)
-        print(f"📋 Found {len(feedback_history)} previous feedbacks")
+        feedback_count = len(feedback_history)
+        print(f"📋 Found {feedback_count} previous feedbacks")
 
-        print("🤖 Generating contextual response...")
+        # If user selected a specific feedback number
+        if feedback_selection and feedback_selection <= feedback_count:
+            print(f"🎯 User selected feedback #{feedback_selection}")
+            selected_feedback = feedback_history[feedback_selection - 1]
+            
+            response_text = f"""📊 **Analyzing Feedback #{feedback_selection}**
+
+**Problem:** {selected_feedback.get('problem_name', 'Unknown')}
+**Difficulty:** {selected_feedback.get('difficulty', 'Unknown')}
+**Rating:** {selected_feedback.get('rating', 0)}/5
+**Time Spent:** {selected_feedback.get('time_spent', 'N/A')} minutes
+
+**Your Experience:**
+{selected_feedback.get('detailed_feedback', 'No feedback provided')}
+
+**Struggled With:** {', '.join(selected_feedback.get('struggled_areas', []))}
+
+---
+
+**💡 Key Insights:**
+"""
+            
+            # Add AI suggestions if available
+            ai_suggestions = selected_feedback.get('ai_suggestions')
+            if ai_suggestions:
+                response_text += f"\n**Suggested Approaches:**\n"
+                for suggestion in ai_suggestions.get('approach_suggestions', [])[:3]:
+                    response_text += f"- {suggestion}\n"
+                
+                response_text += f"\n**Recommended Next Steps:**\n"
+                for problem in ai_suggestions.get('similar_problems', [])[:3]:
+                    response_text += f"- {problem}\n"
+            
+            response_text += "\n\n🎥 **Want video tutorials?** Let me know and I'll fetch relevant YouTube videos!"
+            
+            return {
+                "response": response_text,
+                "source": "feedback_analysis",
+                "suggestions": [],
+                "feedbackCount": feedback_count
+            }
+
+        # If user is asking about feedbacks in general
+        if is_feedback_query:
+            if feedback_count == 0:
+                return {
+                    "response": "📭 You haven't submitted any feedback yet! Start solving problems and share your experience to get personalized AI suggestions.",
+                    "source": "feedback_info",
+                    "suggestions": [],
+                    "feedbackCount": 0
+                }
+            
+            # Show numbered list of feedbacks
+            if feedback_count <= 10:
+                response_text = f"📊 **You have {feedback_count} feedback(s):**\n\n"
+                for idx, fb in enumerate(feedback_history[:10], 1):
+                    difficulty_emoji = "🟢" if fb.get('difficulty') == 'Easy' else "🟡" if fb.get('difficulty') == 'Medium' else "🔴"
+                    response_text += f"{idx}. {difficulty_emoji} **{fb.get('problem_name')}** - {fb.get('category')} ({fb.get('rating')}/5)\n"
+                
+                response_text += "\n\n💬 **Reply with a number** (1-{}) to analyze that feedback in detail!".format(feedback_count)
+            else:
+                # Group by difficulty or category
+                response_text = f"📊 **You have {feedback_count} feedbacks!**\n\n"
+                response_text += "Here's a summary:\n\n"
+                
+                # Count by difficulty
+                easy = sum(1 for fb in feedback_history if fb.get('difficulty') == 'Easy')
+                medium = sum(1 for fb in feedback_history if fb.get('difficulty') == 'Medium')
+                hard = sum(1 for fb in feedback_history if fb.get('difficulty') == 'Hard')
+                
+                response_text += f"🟢 Easy: {easy} problems\n"
+                response_text += f"🟡 Medium: {medium} problems\n"
+                response_text += f"🔴 Hard: {hard} problems\n\n"
+                
+                response_text += "**Recent problems (1-10):**\n"
+                for idx, fb in enumerate(feedback_history[:10], 1):
+                    difficulty_emoji = "🟢" if fb.get('difficulty') == 'Easy' else "🟡" if fb.get('difficulty') == 'Medium' else "🔴"
+                    response_text += f"{idx}. {difficulty_emoji} {fb.get('problem_name')} ({fb.get('rating')}/5)\n"
+                
+                response_text += "\n💬 Reply with a number to analyze specific feedback!"
+            
+            return {
+                "response": response_text,
+                "source": "feedback_list",
+                "suggestions": [f"Analyze feedback #{i+1}" for i in range(min(3, feedback_count))],
+                "feedbackCount": feedback_count
+            }
+
+        # For other queries (not feedback-related), use normal AI response
+        print("🤖 Generating general AI response...")
         response = await generate_contextual_chatbot_response(
             request.query, 
             request.user_id, 
-            feedback_history
+            []  # Don't include feedback history for general queries
         )
         print(f"✅ Response generated: {len(response.response)} characters")
-        print(f"🎯 Source: {response.source}")
-
+        
+        # Add feedback count hint if user has feedbacks
+        if feedback_count > 0:
+            response.response += f"\n\n💡 *Tip: You have {feedback_count} feedback(s). Ask me about them to get personalized insights!*"
+        
         return response
 
     except Exception as e:
@@ -855,53 +961,101 @@ async def get_feedback_history(user_id: str, limit: int = 10):
 
 @app.post("/feedback/youtube-recommendations")
 async def get_youtube_recommendations(request: dict):
-    """Fetch YouTube recommendations for a problem"""
+    """Fetch real YouTube recommendations for a problem"""
     try:
         print(f"\n{'='*60}")
         print(f"📺 YOUTUBE RECOMMENDATIONS REQUEST")
         print(f"{'='*60}")
-        print(f"🎯 Problem: {request.get('problemName', 'Unknown')}")
-        print(f"🔥 Difficulty: {request.get('difficulty', 'Unknown')}")
-        print(f"📦 Category: {request.get('category', 'Unknown')}")
-        print(f"⭐ Rating: {request.get('rating', 0)}/5")
-        print(f"😓 Struggled Areas: {request.get('struggledWith', [])}")
+        problem_name = request.get('problemName', 'Unknown')
+        difficulty = request.get('difficulty', 'Unknown')
+        category = request.get('category', 'Unknown')
+        print(f"🎯 Problem: {problem_name}")
+        print(f"🔥 Difficulty: {difficulty}")
+        print(f"📦 Category: {category}")
         print(f"{'='*60}\n")
 
-        # For now, return mock recommendations
-        # TODO: Integrate with YouTube Data API v3
-        recommendations = [
-            {
-                "title": f"Learn {request.get('category', 'DSA')} - {request.get('difficulty', 'Medium')} Level",
-                "description": f"Comprehensive tutorial covering {request.get('category', 'DSA')} concepts",
-                "url": "https://youtube.com/watch?v=example1",
-                "thumbnail": "https://img.youtube.com/vi/example1/mqdefault.jpg",
-                "duration": "15:30",
-                "relevanceScore": 0.9
-            },
-            {
-                "title": f"{request.get('problemName', 'Problem')} Solution Walkthrough",
-                "description": f"Step-by-step solution for {request.get('problemName', 'this problem')}",
-                "url": "https://youtube.com/watch?v=example2",
-                "thumbnail": "https://img.youtube.com/vi/example2/mqdefault.jpg",
-                "duration": "12:45",
-                "relevanceScore": 0.85
-            },
-            {
-                "title": f"Master {request.get('category', 'DSA')} Patterns",
-                "description": f"Common patterns and techniques in {request.get('category', 'DSA')}",
-                "url": "https://youtube.com/watch?v=example3",
-                "thumbnail": "https://img.youtube.com/vi/example3/mqdefault.jpg",
-                "duration": "20:15",
-                "relevanceScore": 0.8
+        youtube_api_key = os.getenv("YOUTUBE_API_KEY")
+        if not youtube_api_key:
+            print("⚠️  YouTube API key not configured, returning mock data")
+            return {
+                "success": True,
+                "videos": [],
+                "message": "YouTube API key not configured"
             }
-        ]
 
-        print(f"✅ Generated {len(recommendations)} YouTube recommendations")
-        return {"success": True, "videos": recommendations}
+        # Build search query
+        search_query = f"{category} {problem_name} {difficulty} tutorial solution"
+        print(f"🔍 Searching YouTube for: {search_query}")
+
+        # Initialize YouTube API
+        from googleapiclient.discovery import build
+        youtube = build('youtube', 'v3', developerKey=youtube_api_key)
+
+        # Search for videos
+        search_response = youtube.search().list(
+            q=search_query,
+            part='id,snippet',
+            maxResults=5,
+            type='video',
+            order='relevance',
+            videoDuration='medium'  # 4-20 minutes
+        ).execute()
+
+        recommendations = []
+        for item in search_response.get('items', []):
+            video_id = item['id']['videoId']
+            snippet = item['snippet']
+            
+            # Get video details for duration
+            video_response = youtube.videos().list(
+                part='contentDetails,statistics',
+                id=video_id
+            ).execute()
+            
+            duration = 'N/A'
+            views = 0
+            if video_response['items']:
+                duration = video_response['items'][0]['contentDetails']['duration']
+                views = int(video_response['items'][0]['statistics'].get('viewCount', 0))
+            
+            recommendations.append({
+                "title": snippet['title'],
+                "description": snippet['description'][:150] + "...",
+                "url": f"https://www.youtube.com/watch?v={video_id}",
+                "thumbnail": snippet['thumbnails']['high']['url'],
+                "duration": duration,
+                "views": views,
+                "channelTitle": snippet['channelTitle'],
+                "relevanceScore": 0.9  # Based on search ranking
+            })
+
+        print(f"✅ Found {len(recommendations)} YouTube videos")
+        
+        # Save to database (ai_resources field)
+        feedback_id = request.get('feedbackId')
+        if feedback_id:
+            print(f"💾 Saving videos to feedback {feedback_id}...")
+            from shared.database.supabase_connection import supabase_manager
+            
+            supabase_manager.supabase.table('dsa_feedbacks').update({
+                'ai_resources': recommendations
+            }).eq('id', feedback_id).execute()
+            print("✅ Videos saved to database!")
+
+        return {
+            "success": True,
+            "videos": recommendations,
+            "count": len(recommendations)
+        }
 
     except Exception as e:
-        print(f"❌ Error fetching YouTube recommendations: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"❌ ERROR fetching YouTube videos: {e}")
+        # Return empty array on error instead of failing
+        return {
+            "success": False,
+            "videos": [],
+            "error": str(e)
+        }
 
 if __name__ == "__main__":
     import uvicorn

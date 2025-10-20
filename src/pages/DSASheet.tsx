@@ -324,7 +324,14 @@ const DSASheet = () => {
       {/* DSA Chatbot */}
       {!chatbotOpen && (
         <Button
-          onClick={() => setChatbotOpen(true)}
+          onClick={() => {
+            setChatbotOpen(true);
+            // Force position recalculation after state updates
+            setTimeout(() => {
+              const event = new Event('resize');
+              window.dispatchEvent(event);
+            }, 50);
+          }}
           className="fixed bottom-6 right-6 rounded-full w-16 h-16 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90"
           size="lg"
         >

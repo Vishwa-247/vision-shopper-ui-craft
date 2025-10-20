@@ -51,7 +51,12 @@ interface Feedback {
     approach_suggestions?: string[];
     key_concepts?: string[];
     similar_problems?: string[];
-    learning_resources?: string[];
+    learning_resources?: Array<{
+      type: string;
+      title: string;
+      description: string;
+      url?: string;
+    }>;
     overall_advice?: string;
   } | null;
   created_at: string;
@@ -445,7 +450,12 @@ const FeedbacksList = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => copyToClipboard(feedback.ai_suggestions.learning_resources.join('\n'), `${feedback.id}-resources`)}
+                          onClick={() => {
+                            const resourceText = feedback.ai_suggestions.learning_resources
+                              .map(r => `${r.title}: ${r.description}`)
+                              .join('\n');
+                            copyToClipboard(resourceText, `${feedback.id}-resources`);
+                          }}
                           className="absolute top-0 right-0 h-6 px-2"
                         >
                           {copiedSections[`${feedback.id}-resources`] ? (
@@ -454,14 +464,36 @@ const FeedbacksList = () => {
                             <Copy className="h-3 w-3" />
                           )}
                         </Button>
-                        <ul className="space-y-2">
-                          {feedback.ai_suggestions.learning_resources.map((resource: string, idx: number) => (
-                            <li key={idx} className="text-sm text-foreground flex gap-2 bg-orange-50/50 dark:bg-orange-950/10 p-2 rounded">
-                              <span className="text-orange-600 dark:text-orange-400 font-bold">•</span>
-                              <span>{resource}</span>
-                            </li>
+                        <div className="space-y-3">
+                          {feedback.ai_suggestions.learning_resources.map((resource, idx) => (
+                            <div key={idx} className="bg-orange-50/50 dark:bg-orange-950/10 p-3 rounded-lg border border-orange-200 dark:border-orange-700">
+                              <div className="flex items-start gap-2">
+                                <BookOpen className="h-4 w-4 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-1" />
+                                <div className="flex-1">
+                                  <p className="font-semibold text-sm text-orange-900 dark:text-orange-200 mb-1">
+                                    {resource.title}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mb-2">
+                                    {resource.description}
+                                  </p>
+                                  {resource.url && (
+                                    <a
+                                      href={resource.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-primary hover:underline font-medium flex items-center gap-1"
+                                    >
+                                      Watch on YouTube →
+                                    </a>
+                                  )}
+                                </div>
+                                <Badge variant="outline" className="text-xs">
+                                  {resource.type}
+                                </Badge>
+                              </div>
+                            </div>
                           ))}
-                        </ul>
+                        </div>
                       </div>
                     </CollapsibleContent>
                   </Collapsible>

@@ -99,20 +99,31 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
 
   // Reset position when component mounts to ensure visibility
   useEffect(() => {
-    // Only reset position on first mount if position is off-screen
-    const defaultPos = getDefaultPosition();
-    const isOffScreen = 
-      chatbotPosition.x < 0 || 
-      chatbotPosition.x > window.innerWidth - chatbotSize.width ||
-      chatbotPosition.y < 0 ||
-      chatbotPosition.y > window.innerHeight - chatbotSize.height;
+    // Always ensure chatbot is visible when opened
+    const ensureVisibility = () => {
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      const isOffScreen = 
+        chatbotPosition.x < 0 || 
+        chatbotPosition.x > viewportWidth - chatbotSize.width ||
+        chatbotPosition.y < 0 ||
+        chatbotPosition.y > viewportHeight - chatbotSize.height;
 
-    if (isOffScreen) {
-      console.log('⚠️ Chatbot position is off-screen, resetting to default');
-      setChatbotPosition(defaultPos);
-    } else {
-      console.log('✅ Chatbot position is valid:', chatbotPosition);
-    }
+      if (isOffScreen) {
+        console.log('⚠️ Chatbot position is off-screen, resetting to default');
+        const defaultPos = getDefaultPosition();
+        setChatbotPosition(defaultPos);
+      } else {
+        console.log('✅ Chatbot position is valid:', chatbotPosition);
+      }
+    };
+
+    ensureVisibility();
+
+    // Re-check on window resize or scroll
+    window.addEventListener('resize', ensureVisibility);
+    return () => window.removeEventListener('resize', ensureVisibility);
   }, []); // Only run once on mount
 
   // Handle scroll position - chatbot should stay fixed
@@ -529,7 +540,7 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
           </div>
         </ScrollArea>
 
-        <div className="border-t p-4 bg-card">
+        <div className="border-t p-4 pb-6 bg-card">
           <div className="flex gap-2">
             <Input
               value={inputValue}
@@ -747,7 +758,7 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
             </div>
           </ScrollArea>
 
-          <div className="border-t p-4">
+          <div className="border-t p-4 pb-5">
             <div className="flex gap-2">
               <Input
                 value={inputValue}
