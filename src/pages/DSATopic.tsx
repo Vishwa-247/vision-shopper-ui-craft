@@ -143,8 +143,8 @@ const DSATopic = () => {
                   return (
                     <Card 
                       key={`${topic.id}-${index}`}
-                      className={`group hover:shadow-md transition-all duration-200 ${
-                        isCompleted ? 'bg-primary/5 border-primary/20' : 'hover:border-primary/20'
+                      className={`group hover:shadow-md transition-all duration-200 bg-white ${
+                        isCompleted ? 'border-primary/20' : 'hover:border-primary/20'
                       }`}
                     >
                       <CardContent className="p-4">
@@ -163,7 +163,10 @@ const DSATopic = () => {
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <h3 className={`text-lg font-medium transition-colors ${
-                                isCompleted ? 'text-muted-foreground line-through' : 'text-foreground'
+                                isCompleted ? 'text-muted-foreground line-through' : 
+                                problem.difficulty === 'Easy' ? 'text-green-600' :
+                                problem.difficulty === 'Medium' ? 'text-orange-600' :
+                                problem.difficulty === 'Hard' ? 'text-red-600' : 'text-foreground'
                               }`}>
                                 {problem.name}
                               </h3>

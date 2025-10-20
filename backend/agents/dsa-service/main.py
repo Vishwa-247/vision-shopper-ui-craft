@@ -406,18 +406,17 @@ STUDENT CONTEXT:
 {context_text}
 
 INSTRUCTIONS:
-- Provide personalized advice based on their learning history
-- When suggesting resources, include YouTube video links in markdown format: [Video Title](https://youtube.com/watch?v=...)
-- Be encouraging and specific to their struggles
-- Include code examples when relevant
-- Suggest practice problems that build on their recent work
-- Keep responses concise but helpful (2-3 paragraphs max)
+- **Keep responses under 150 words**
+- Use bullet points, not long paragraphs
+- Provide concise, actionable advice
+- When suggesting resources, include YouTube video links: [Video Title](https://youtube.com/watch?v=...)
+- Be encouraging but brief
 
 RESPONSE FORMAT:
-- Start with acknowledging their specific situation if relevant
-- Provide actionable advice
-- Include relevant resources with clickable links
-- End with encouragement and next steps"""
+1. Acknowledge their situation (1 sentence)
+2. Provide 2-3 bullet points of advice
+3. Include 1-2 resource links
+4. End with brief encouragement (1 sentence)"""
 
     try:
         response = groq_client.chat.completions.create(
@@ -427,7 +426,7 @@ RESPONSE FORMAT:
             ],
             model="llama-3.3-70b-versatile",
             temperature=0.7,
-            max_tokens=1000
+            max_tokens=400
         )
         
         response_text = response.choices[0].message.content.strip()

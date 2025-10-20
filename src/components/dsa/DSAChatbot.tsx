@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Bot, Send, User, MessageCircle, X, Minimize2, Maximize2, Loader2, GripVertical } from 'lucide-react';
+import { Bot, Send, User, MessageCircle, X, Minimize2, Maximize2, Loader2, GripVertical, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -59,9 +59,10 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
     const height = window.innerHeight;
     const defaultSize = getDefaultSize();
     
-    // Always position at bottom-right, with padding
-    const x = width - defaultSize.width - 24;
-    const y = height - defaultSize.height - 24;
+    // Always position at bottom-right, with safe padding
+    // Ensure minimum 20px from all edges
+    const x = Math.max(20, Math.min(width - defaultSize.width - 20, width - defaultSize.width - 24));
+    const y = Math.max(20, Math.min(height - defaultSize.height - 20, height - defaultSize.height - 24));
     
     return { x, y };
   };
@@ -306,6 +307,21 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
               <span className="font-medium text-sm">DSA Assistant</span>
             </div>
             <div className="flex gap-1">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  setChatbotPosition(getDefaultPosition());
+                  toast({
+                    title: "Chatbot position reset",
+                    description: "The chatbot has been moved to the default position",
+                  });
+                }}
+                title="Reset position"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
               <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onToggleMinimize?.(); }}>
                 <Maximize2 className="h-4 w-4" />
               </Button>
@@ -460,13 +476,12 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
         const viewportHeight = window.innerHeight;
         const viewportWidth = window.innerWidth;
         
-        // Constrain x position within viewport
-        let newX = d.x;
-        newX = Math.max(16, newX); // Left boundary
-        newX = Math.min(viewportWidth - chatbotSize.width - 16, newX); // Right boundary
+        // Constrain position within viewport with 20px padding
+        let newX = Math.max(20, d.x);
+        newX = Math.min(viewportWidth - chatbotSize.width - 20, newX);
         
-        // Keep bottom anchored to viewport
-        const newY = viewportHeight - chatbotSize.height - 24;
+        let newY = Math.max(20, d.y);
+        newY = Math.min(viewportHeight - chatbotSize.height - 20, newY);
         
         setChatbotPosition({ x: newX, y: newY });
       }}

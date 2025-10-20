@@ -101,7 +101,7 @@ const DSASheet = () => {
                   {filteredTopics.map((topic, index) => (
                     <div key={topic.id} className="relative group">
                       <Link to={`/dsa-sheet/topic/${topic.id}`}>
-                        <Card className="group hover:shadow-xl transition-all duration-300 border-2 hover:border-primary/20 bg-card/50 backdrop-blur-sm">
+                        <Card className="group hover:shadow-xl transition-all duration-300 border-2 hover:border-primary/20 bg-white">
                           <CardContent className="p-6">
                           <div className="flex items-center justify-between mb-4">
                             <div className="text-3xl">{topic.icon}</div>
@@ -132,7 +132,11 @@ const DSASheet = () => {
                             </div>
                           </div>
                             
-                            <h3 className="text-xl font-semibold text-foreground mb-3 group-hover:text-primary transition-colors">
+                            <h3 className={`text-xl font-semibold mb-3 group-hover:text-primary transition-colors ${
+                              topic.difficulty === 'Easy' ? 'text-green-600' :
+                              topic.difficulty === 'Medium' ? 'text-orange-600' :
+                              topic.difficulty === 'Hard' ? 'text-red-600' : 'text-foreground'
+                            }`}>
                               {topic.title}
                             </h3>
                             
@@ -238,20 +242,6 @@ const DSASheet = () => {
 
             <TabsContent value="feedbacks" className="mt-8">
               <div className="space-y-6">
-                {/* Feedback Submission */}
-                <Card className="bg-card/50 backdrop-blur-sm">
-                  <CardContent className="p-6">
-                    <h3 className="text-xl font-semibold text-foreground mb-4">Submit General Feedback</h3>
-                    <p className="text-muted-foreground mb-6">Share your overall DSA learning experience and get personalized recommendations</p>
-                    <FeedbackSystem 
-                      problemId="general-feedback"
-                      problemName="DSA Practice Feedback"
-                      difficulty="medium"
-                      category="general"
-                    />
-                  </CardContent>
-                </Card>
-
                 {/* Feedback History */}
                 <Card className="bg-card/50 backdrop-blur-sm">
                   <CardContent className="p-6">

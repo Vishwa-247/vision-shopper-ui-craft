@@ -127,6 +127,9 @@ export const FeedbackSystem: React.FC<FeedbackSystemProps> = ({
 
       if (dbError) throw dbError;
 
+      // Show loading toast for AI suggestions
+      toast.info("Generating AI suggestions... This may take a few seconds");
+
       // Generate AI suggestions using backend service
       fetch("http://localhost:8004/feedback/generate-suggestions", {
         method: "POST",
@@ -145,18 +148,20 @@ export const FeedbackSystem: React.FC<FeedbackSystemProps> = ({
           detailed_feedback: feedback.additionalFeedback,
         }),
       })
-        .then((response) => {
+        .then(async (response) => {
           if (response.ok) {
-            console.log("AI suggestions generated successfully");
+            const result = await response.json();
+            console.log("AI suggestions generated successfully:", result);
+            toast.success("AI suggestions generated! Check your feedback history to see personalized recommendations");
           } else {
-            console.error(
-              "Error generating AI suggestions:",
-              response.statusText
-            );
+            const errorText = await response.text();
+            console.error("Error generating AI suggestions:", errorText);
+            toast.error("Failed to generate AI suggestions. Please try again later");
           }
         })
         .catch((error) => {
           console.error("Error generating AI suggestions:", error);
+          toast.error("Network error: Could not connect to AI service");
         });
 
       // Fetch YouTube recommendations

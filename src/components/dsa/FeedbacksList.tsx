@@ -8,6 +8,35 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
+// Map feedback categories to actual topic routes
+const getCategoryRoute = (category: string): string => {
+  const categoryMap: Record<string, string> = {
+    'Arrays': 'array-basics',
+    'Strings': 'string-basics', 
+    'Linked Lists': 'linked-list',
+    'Trees': 'tree-basics',
+    'Graphs': 'graph-basics',
+    'Dynamic Programming': 'dp-basics',
+    'Greedy': 'greedy-basics',
+    'Backtracking': 'backtracking',
+    'Sorting': 'sorting-basics',
+    'Searching': 'searching-basics',
+    'Hash Tables': 'hash-table',
+    'Heaps': 'heap-basics',
+    'Stacks': 'stack-basics',
+    'Queues': 'queue-basics',
+    'Two Pointers': 'two-pointers',
+    'Sliding Window': 'sliding-window',
+    'Binary Search': 'binary-search',
+    'Recursion': 'recursion',
+    'Math': 'math-basics',
+    'Bit Manipulation': 'bit-manipulation',
+    // Add more mappings as needed
+  };
+
+  return categoryMap[category] || 'array-basics'; // Default fallback
+};
+
 interface Feedback {
   id: string;
   problem_id: string;
@@ -217,7 +246,16 @@ const FeedbacksList = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigate(`/dsa-sheet/topic/${feedback.category.toLowerCase()}`)}
+                  onClick={() => {
+                    try {
+                      const topicRoute = getCategoryRoute(feedback.category);
+                      navigate(`/dsa-sheet/topic/${topicRoute}`);
+                    } catch (error) {
+                      console.error('Navigation error:', error);
+                      navigate('/dsa-sheet');
+                      toast.error('Could not navigate to topic');
+                    }
+                  }}
                   className="flex items-center gap-2 hover:bg-primary/10"
                 >
                   <TrendingUp className="h-4 w-4" />
