@@ -54,6 +54,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
 # Pydantic models
 class InterviewStartRequest(BaseModel):
     user_id: str = Field(..., description="User UUID")
@@ -424,6 +427,143 @@ def generate_overall_analysis(session: Dict[str, Any]) -> Dict[str, Any]:
     }
     
     return analysis
+
+# -----------------------------
+# Hybrid Technical QG Endpoint
+# -----------------------------
+
+def _build_qg_prompt(payload: Dict[str, Any]) -> str:
+    resume_summary = payload.get("resume_summary", "")
+    tech_stack = ", ".join(payload.get("tech_stack", []))
+    job_role = payload.get("job_role", "Software Engineer")
+    exp_level = payload.get("exp_level", "1-3 years")
+    total = int(payload.get("total", 10))
+    return f"""
+You are an expert technical interviewer. Generate {total} technical interview questions tailored to the candidate.
+
+Candidate resume summary:
+{resume_summary}
+
+Target role: {job_role}
+Tech stack: {tech_stack}
+Experience level bucket: {exp_level}
+
+Rules:
+- 60% should be tailored to the resume & target role; 40% fundamentals.
+- Vary difficulty based on exp_level (easy for 0-1y, medium 1-3y, medium-hard 3-5y, hard 5+).
+- Output strictly JSON with this shape:
+{{
+  "questions": [
+    {{ "id": "q1", "text": "...", "category": "...", "difficulty": "easy|medium|hard", "rubric": ["point1","point2"] }},
+    ...
+  ]
+}}
+""".strip()
+
+async def _call_gemini(prompt: str, timeout: float = 8.0) -> Dict[str, Any]:
+    import httpx
+    headers = {"Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY or ""}
+    body = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.6, "maxOutputTokens": 1200}
+    }
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        resp = await client.post(
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+            headers=headers,
+            json=body,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "{}")
+        try:
+            return json.loads(text)
+        except Exception:
+            return {"questions": []}
+
+async def _call_groq(prompt: str, timeout: float = 6.0) -> Dict[str, Any]:
+    import httpx
+    headers = {"Authorization": f"Bearer {GROQ_API_KEY or ''}", "Content-Type": "application/json"}
+    body = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": [
+            {"role": "system", "content": "You must return only valid JSON for interview questions."},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.6,
+        "max_tokens": 1000,
+    }
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        resp = await client.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=body)
+        resp.raise_for_status()
+        data = resp.json()
+        text = data.get("choices", [{}])[0].get("message", {}).get("content", "{}")
+        try:
+            return json.loads(text)
+        except Exception:
+            return {"questions": []}
+
+def _default_questions(payload: Dict[str, Any]) -> Dict[str, Any]:
+    # Fall back to internal bank if LLMs fail
+    easy = question_bank.get("technical", {}).get("easy", [])
+    medium = question_bank.get("technical", {}).get("medium", [])
+    hard = question_bank.get("technical", {}).get("hard", [])
+    qs = (easy + medium + hard)[:10]
+    # Normalize to expected schema
+    normalized = []
+    for i, q in enumerate(qs, start=1):
+        normalized.append({
+            "id": q.get("id", f"tech_{i:03d}"),
+            "text": q.get("question", ""),
+            "category": q.get("category", "General"),
+            "difficulty": q.get("difficulty", "medium"),
+            "rubric": q.get("expected_points", []),
+        })
+    return {"questions": normalized}
+
+@app.post("/generate-technical")
+async def generate_technical(payload: Dict[str, Any]):
+    try:
+        prompt = _build_qg_prompt(payload)
+        source = "gemini"
+        result = {"questions": []}
+
+        if GEMINI_API_KEY:
+            try:
+                result = await _call_gemini(prompt, timeout=8.0)
+            except Exception as e:
+                logger.warning(f"Gemini QG failed: {e}")
+                result = {"questions": []}
+        if not result.get("questions") and GROQ_API_KEY:
+            source = "groq"
+            try:
+                result = await _call_groq(prompt, timeout=6.0)
+            except Exception as e:
+                logger.warning(f"Groq QG failed: {e}")
+                result = {"questions": []}
+        if not result.get("questions"):
+            source = "cache"
+            result = _default_questions(payload)
+
+        # Create session
+        session_id = str(uuid.uuid4())
+        interview_sessions[session_id] = {
+            "id": session_id,
+            "user_id": payload.get("user_id", "demo"),
+            "interview_type": "technical",
+            "job_role": payload.get("job_role", "Software Engineer"),
+            "difficulty": "adaptive",
+            "status": "active",
+            "questions": result.get("questions", []),
+            "current_question": 0,
+            "start_time": datetime.utcnow().isoformat(),
+            "duration": payload.get("duration", 30),
+        }
+
+        return {"success": True, "session_id": session_id, "questions": result.get("questions", []), "source": source}
+    except Exception as e:
+        logger.error(f"generate_technical error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     # Get configuration from environment

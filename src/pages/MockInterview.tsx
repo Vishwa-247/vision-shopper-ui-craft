@@ -518,6 +518,7 @@ import {
 import Container from "@/components/ui/Container";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
+import InterviewCapture from "@/components/interview/InterviewCapture";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -847,12 +848,10 @@ const MockInterview = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <VideoRecorder
-                    onRecordingComplete={() => {}}
-                    isRecording={false}
-                    startRecording={() => {}}
-                    stopRecording={() => {}}
-                  />
+                  {/* Preview only - no capture here for now */}
+                  <div className="rounded border p-2 text-sm text-muted-foreground">
+                    Your camera preview will appear when you start the interview.
+                  </div>
                 </CardContent>
               </Card>
 
@@ -927,12 +926,49 @@ const MockInterview = () => {
             </div>
 
             <div className="space-y-6">
-              <VideoRecorder
-                onRecordingComplete={handleAnswerSubmitted}
-                isRecording={isRecording}
-                startRecording={startRecording}
-                stopRecording={stopRecording}
-                onMetricsUpdate={setMetricsData}
+              <InterviewCapture
+                onFaceFrame={async (jpegBase64) => {
+                  try {
+                    const res = await fetch('http://localhost:5000/analyze', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ image: jpegBase64 }),
+                    });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    setMetricsData(prev => ({
+                      ...prev,
+                      facialData: {
+                        confident: (data.metrics?.confident ?? 0) * 100,
+                        stressed: (data.metrics?.stressed ?? 0) * 100,
+                        nervous: (data.metrics?.nervous ?? 0) * 100,
+                      },
+                      behaviorData: {
+                        blink_count: data.face_tracking?.blink_count ?? 0,
+                        looking_at_camera: !!data.face_tracking?.looking_at_camera,
+                        head_pose: data.face_tracking?.head_pose ?? { pitch: 0, yaw: 0, roll: 0 },
+                      },
+                    }));
+                  } catch (e) {
+                    console.error('Face frame analysis error:', e);
+                  }
+                }}
+                onAudioReady={async (blob) => {
+                  try {
+                    const fd = new FormData();
+                    fd.append('audio', blob, 'answer.webm');
+                    fd.append('question_id', String(currentQuestionIndex));
+                    const resp = await fetch(`http://localhost:8000/interviews/${interviewId}/answer`, {
+                      method: 'POST',
+                      body: fd,
+                    });
+                    await resp.json();
+                    setRecordingComplete(true);
+                  } catch (err) {
+                    console.error('Submit answer failed:', err);
+                    toast({ title: 'Submission Error', description: 'Please try again.', variant: 'destructive' });
+                  }
+                }}
               />
 
               <MetricsPanel

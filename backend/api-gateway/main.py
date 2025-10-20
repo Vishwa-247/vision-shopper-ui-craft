@@ -222,6 +222,12 @@ async def get_interview(interview_id: str, user_id: str = Depends(verify_token))
 async def analyze_interview(interview_id: str, analysis_data: dict, user_id: str = Depends(verify_token)):
     return await forward_to_agent("interview-coach", f"/interviews/{interview_id}/analyze", "POST", analysis_data)
 
+# Technical Interview: Hybrid Question Generation
+@app.post("/interviews/technical/generate")
+async def generate_technical(interview_data: dict, user_id: str = Depends(verify_token)):
+    interview_data["user_id"] = user_id
+    return await forward_to_agent("interview-coach", "/generate-technical", "POST", interview_data)
+
 # Chat Routes
 @app.post("/chat/message")
 async def send_message(message_data: dict, user_id: str = Depends(verify_token)):
