@@ -198,7 +198,7 @@ async def extract_profile_with_groq(resume_text: str) -> dict:
                 {{
                     "name": "Skill name",
                     "level": "Beginner|Intermediate|Advanced|Expert",
-                    "category": "Technical|Soft|Language|Framework|Tool"
+                    "category": "MUST be one of: Technical, Soft, Language, Framework, Tool"
                 }}
             ],
             "experience": [
@@ -248,6 +248,13 @@ async def extract_profile_with_groq(resume_text: str) -> dict:
             ]
         }}
         
+        IMPORTANT SKILL CATEGORY RULES:
+        - Use 'Technical' for programming languages, technologies, ML/AI tools, data science
+        - Use 'Framework' for libraries like React, Django, TensorFlow, Scikit-learn, Pandas, NumPy
+        - Use 'Tool' for software tools like Git, Docker, AWS, Azure, Jupyter, VS Code
+        - Use 'Language' for human languages like English, Spanish, French, Hindi
+        - Use 'Soft' for soft skills like Leadership, Communication, Teamwork, Problem Solving
+        
         Only return valid JSON, no additional text. If information is not found, use empty strings or empty arrays.
         """
         
@@ -290,6 +297,56 @@ async def extract_profile_with_groq(resume_text: str) -> dict:
     except Exception as e:
         logger.error(f"Groq extraction failed: {e}")
         raise e
+
+
+def map_skill_category(category: str) -> str:
+    """
+    Map AI-generated skill categories to database-allowed categories.
+
+    Allowed categories: 'Technical', 'Soft', 'Language', 'Framework', 'Tool'
+    """
+    category_lower = category.lower().strip()
+
+    # Mapping rules
+    technical_keywords = ['machine learning', 'data science', 'ai', 'ml', 'deep learning', 
+                         'computer vision', 'nlp', 'data', 'programming', 'python', 'java', 
+                         'javascript', 'sql', 'algorithms', 'statistics']
+    framework_keywords = ['framework', 'library', 'tensorflow', 'pytorch', 'react', 
+                         'django', 'flask', 'scikit', 'pandas', 'numpy', 'spring', 'angular']
+    tool_keywords = ['tool', 'software', 'platform', 'cloud', 'aws', 'azure', 
+                    'docker', 'kubernetes', 'git', 'jenkins', 'jupyter', 'vscode']
+    soft_keywords = ['soft', 'communication', 'leadership', 'management', 'teamwork', 
+                    'problem solving', 'analytical', 'creative']
+    language_keywords = ['language', 'english', 'spanish', 'french', 'hindi', 'mandarin']
+
+    # Check if category is already valid
+    if category in ['Technical', 'Soft', 'Language', 'Framework', 'Tool']:
+        return category
+
+    # Map based on keywords
+    for keyword in framework_keywords:
+        if keyword in category_lower:
+            return 'Framework'
+
+    for keyword in tool_keywords:
+        if keyword in category_lower:
+            return 'Tool'
+
+    for keyword in soft_keywords:
+        if keyword in category_lower:
+            return 'Soft'
+
+    for keyword in language_keywords:
+        if keyword in category_lower:
+            return 'Language'
+
+    for keyword in technical_keywords:
+        if keyword in category_lower:
+            return 'Technical'
+
+    # Default fallback
+    logger.warning(f"⚠️ Unknown skill category '{category}', defaulting to 'Technical'")
+    return 'Technical'
 
 def get_empty_profile_structure():
     """Return empty profile structure as fallback"""
@@ -416,6 +473,19 @@ async def extract_profile_data(
             "certifications": extracted_data.get("certifications", []),
             "summary": extracted_data.get("professional_summary", "")
         }
+        
+        # Apply skill category mapping to ensure database compatibility
+        if "skills" in formatted_data and formatted_data["skills"]:
+            logger.info(f"📝 Processing {len(formatted_data['skills'])} skills for category mapping")
+            for skill in formatted_data["skills"]:
+                if isinstance(skill, dict) and "category" in skill:
+                    original_category = skill.get("category", "Technical")
+                    mapped_category = map_skill_category(original_category)
+                    
+                    if original_category != mapped_category:
+                        logger.info(f"📝 Mapped skill category '{original_category}' → '{mapped_category}' for skill: {skill.get('name', 'Unknown')}")
+                    
+                    skill["category"] = mapped_category
         
         # Calculate confidence score
         confidence_score = 0.0
