@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Video, Medal, MessageSquare, AlertCircle, Code, Target, CheckCircle, User, BookOpen, GraduationCap, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -124,7 +124,7 @@ const Dashboard = () => {
   const displayInterviews: any[] = [];
   const recentInterviews = displayInterviews.slice(0, 3);
 
-  // DSA Analytics calculations
+  // DSA Analytics calculations (static totals)
   const totalDSAProblems = dsaTopics.reduce((total, topic) => total + topic.totalProblems, 0);
   const solvedDSAProblems = dsaTopics.reduce((total, topic) => total + topic.solvedProblems, 0);
   const totalCompanyProblems = companies.reduce((total, company) => total + company.totalProblems, 0);
@@ -132,6 +132,54 @@ const Dashboard = () => {
   const totalAllDSAProblems = totalDSAProblems + totalCompanyProblems;
   const totalSolvedDSAProblems = solvedDSAProblems + solvedCompanyProblems;
   const dsaProgressPercentage = totalAllDSAProblems > 0 ? Math.round((totalSolvedDSAProblems / totalAllDSAProblems) * 100) : 0;
+
+  // Real DSA data from Supabase
+  const [realDSAData, setRealDSAData] = useState({
+    solvedProblems: 0,
+    totalFeedbacks: 0,
+    recentFeedbacks: [] as any[],
+    progressPercentage: 0
+  });
+
+  const loadRealDSAProgress = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data: feedbacks, error } = await supabase
+        .from('dsa_feedbacks')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+
+      const uniqueProblems = new Set((feedbacks || []).map(f => f.problem_name));
+      const solvedCount = uniqueProblems.size;
+      const percentage = totalAllDSAProblems > 0 ? Math.round((solvedCount / totalAllDSAProblems) * 100) : 0;
+
+      setRealDSAData({
+        solvedProblems: solvedCount,
+        totalFeedbacks: feedbacks?.length || 0,
+        recentFeedbacks: (feedbacks || []).slice(0, 5),
+        progressPercentage: percentage
+      });
+    } catch (e) {
+      console.error('Failed to load DSA progress:', e);
+    }
+  }, [user, totalAllDSAProblems]);
+
+  useEffect(() => {
+    if (user) loadRealDSAProgress();
+  }, [user, loadRealDSAProgress]);
+
+  useEffect(() => {
+    if (!user) return;
+    const ch = supabase
+      .channel('dashboard-dsa-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dsa_feedbacks', filter: `user_id=eq.${user.id}` }, () => {
+        loadRealDSAProgress();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user, loadRealDSAProgress]);
 
   // Recent DSA activity (solved problems from topics and companies)
   const recentDSAActivity = [

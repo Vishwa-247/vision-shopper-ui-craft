@@ -64,6 +64,31 @@ export const useDSAProgress = () => {
     }
   }, [user, loadProgress, setupRealtimeSubscription]);
 
+  // Open feedback form without saving yet
+  const toggleProblemForFeedback = useCallback((problemName: string) => {
+    if (!user) {
+      toast.error('Please sign in to track progress');
+      return false;
+    }
+
+    const isCurrentlyCompleted = completedProblems.has(problemName);
+    if (isCurrentlyCompleted) {
+      toast.info('Already completed. Delete feedback in Feedbacks tab to unmark.');
+      return false;
+    }
+    console.log('📝 Opening feedback form for:', problemName);
+    return true;
+  }, [user, completedProblems]);
+
+  // Mark as completed locally after feedback submit
+  const markAsCompleted = useCallback((problemName: string) => {
+    setCompletedProblems(prev => {
+      const next = new Set(prev);
+      next.add(problemName);
+      return next;
+    });
+  }, []);
+
   const toggleProblem = useCallback(async (
     problemName: string,
     problemId?: string,
@@ -142,6 +167,8 @@ export const useDSAProgress = () => {
     completedProblems,
     loading,
     toggleProblem,
+    toggleProblemForFeedback,
+    markAsCompleted,
     isCompleted,
     refreshProgress: loadProgress
   };

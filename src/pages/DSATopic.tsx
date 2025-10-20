@@ -19,7 +19,7 @@ const DSATopic = () => {
   const { topicId } = useParams();
   const { user } = useAuth();
   const { isFavorite, toggleFavorite, favorites } = useFavorites();
-  const { completedProblems, toggleProblem, isCompleted } = useDSAProgress();
+  const { completedProblems, toggleProblemForFeedback } = useDSAProgress();
   const topic = dsaTopics.find(t => t.id === topicId);
   const [expandedFeedback, setExpandedFeedback] = useState<string | null>(null);
   const [filters, setFilters] = useState({ difficulty: [] });
@@ -38,14 +38,10 @@ const DSATopic = () => {
     );
   }
 
-  const handleToggleProblem = useCallback(async (problemName: string) => {
-    const shouldShowFeedback = await toggleProblem(problemName, undefined, topicId);
-    if (shouldShowFeedback) {
-      setExpandedFeedback(problemName);
-    } else {
-      setExpandedFeedback(null);
-    }
-  }, [toggleProblem, topicId]);
+  const handleToggleProblem = useCallback((problemName: string) => {
+    const shouldShowFeedback = toggleProblemForFeedback(problemName);
+    if (shouldShowFeedback) setExpandedFeedback(problemName); else setExpandedFeedback(null);
+  }, [toggleProblemForFeedback]);
 
   // Filter problems based on difficulty and favorites
   const filteredProblems = useMemo(() => {
@@ -207,14 +203,14 @@ const DSATopic = () => {
                         </div>
                       </CardContent>
                   
-                  {/* Inline Feedback */}
-                  {isCompleted && (
+                  {/* Inline Feedback - show when expanded (before completion) */}
+                  {expandedFeedback === problem.name && (
                     <div className="mt-4 px-4 pb-4">
                       <InlineFeedback
-                        isExpanded={expandedFeedback === problem.name}
-                        onToggle={() => setExpandedFeedback(expandedFeedback === problem.name ? null : problem.name)}
+                        isExpanded={true}
+                        onToggle={() => setExpandedFeedback(null)}
                         problemName={problem.name}
-                        difficulty="Medium"
+                        difficulty={problem.difficulty || 'Medium'}
                         company={topic.title}
                         onSubmit={() => setExpandedFeedback(null)}
                       />

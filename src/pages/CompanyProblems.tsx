@@ -20,21 +20,17 @@ const CompanyProblems = () => {
   const { companyId } = useParams();
   const { user } = useAuth();
   const { isFavorite, toggleFavorite, favorites } = useFavorites();
-  const { completedProblems, toggleProblem, isCompleted } = useDSAProgress();
+  const { completedProblems, toggleProblemForFeedback } = useDSAProgress();
   const company = companies.find(c => c.id === companyId);
   
   const [expandedFeedback, setExpandedFeedback] = useState<string | null>(null);
   const [filters, setFilters] = useState({ difficulty: [] });
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-  const handleToggleProblem = useCallback(async (problemName: string) => {
-    const shouldShowFeedback = await toggleProblem(problemName, undefined, undefined, companyId);
-    if (shouldShowFeedback) {
-      setExpandedFeedback(problemName);
-    } else {
-      setExpandedFeedback(null);
-    }
-  }, [toggleProblem, companyId]);
+  const handleToggleProblem = useCallback((problemName: string) => {
+    const shouldShowFeedback = toggleProblemForFeedback(problemName);
+    if (shouldShowFeedback) setExpandedFeedback(problemName); else setExpandedFeedback(null);
+  }, [toggleProblemForFeedback]);
 
   // Filter problems based on difficulty and favorites
   const filteredProblems = useMemo(() => {
@@ -228,12 +224,12 @@ const CompanyProblems = () => {
                         </div>
                       </CardContent>
                   
-                  {/* Inline Feedback */}
-                  {isCompleted && (
+                  {/* Inline Feedback - show when expanded (before completion) */}
+                  {expandedFeedback === problem.name && (
                     <div className="mt-4 px-6 pb-6">
                       <InlineFeedback
-                        isExpanded={expandedFeedback === problem.name}
-                        onToggle={() => setExpandedFeedback(expandedFeedback === problem.name ? null : problem.name)}
+                        isExpanded={true}
+                        onToggle={() => setExpandedFeedback(null)}
                         problemName={problem.name}
                         difficulty={problem.difficulty}
                         company={company.title}
