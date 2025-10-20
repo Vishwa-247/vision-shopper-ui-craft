@@ -158,7 +158,7 @@ const Dashboard = () => {
       <div className="py-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-[#ff6b6b] to-[#4ecdc4] text-transparent bg-clip-text">StudyMate Dashboard</h1>
+            <h1 className="text-3xl font-bold tracking-tight">StudyMate Dashboard</h1>
             <p className="text-muted-foreground mt-1">
               Track your learning progress and interview performance
             </p>
@@ -294,20 +294,51 @@ const Dashboard = () => {
                   <CardDescription>Complete your professional profile</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-center py-8 text-muted-foreground">
-                    <div className="mb-4">
-                      <User className="h-12 w-12 mx-auto text-primary mb-4" />
-                      <h3 className="text-lg font-medium mb-2">Build Your Profile</h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Create a comprehensive professional profile to get personalized recommendations
-                      </p>
+                  {userProfile && userProfile.completion_percentage > 0 ? (
+                    // Show profile summary when profile exists
+                    <div className="space-y-4">
+                      <div className="flex items-start space-x-3">
+                        <User className="h-8 w-8 text-primary mt-1" />
+                        <div className="flex-1">
+                          <h3 className="text-lg font-medium mb-1">
+                            {userProfile.full_name || 'Anonymous User'}
+                          </h3>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            {userProfile.professional_summary?.substring(0, 100) || 'No summary available'}
+                            {userProfile.professional_summary && userProfile.professional_summary.length > 100 && '...'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">Profile Completion</p>
+                          <p className="text-2xl font-bold text-primary">{userProfile.completion_percentage}%</p>
+                        </div>
+                        <Button asChild>
+                          <Link to="/profile-builder">
+                            {userProfile.completion_percentage === 100 ? 'View Profile' : 'Complete Profile'} 
+                            <ArrowRight className="ml-2 h-4 w-4" />
+                          </Link>
+                        </Button>
+                      </div>
                     </div>
-                    <Button asChild>
-                      <Link to="/profile-builder">
-                        Get Started <ArrowRight className="ml-2 h-4 w-4" />
-                      </Link>
-                    </Button>
-                  </div>
+                  ) : (
+                    // Show default message when no profile
+                    <div className="text-center py-8 text-muted-foreground">
+                      <div className="mb-4">
+                        <User className="h-12 w-12 mx-auto text-primary mb-4" />
+                        <h3 className="text-lg font-medium mb-2">Build Your Profile</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Create a comprehensive professional profile to get personalized recommendations
+                        </p>
+                      </div>
+                      <Button asChild>
+                        <Link to="/profile-builder">
+                          Get Started <ArrowRight className="ml-2 h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

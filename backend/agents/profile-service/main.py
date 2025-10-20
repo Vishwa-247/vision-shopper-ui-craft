@@ -667,6 +667,18 @@ async def apply_extracted_data(user_id: str, extracted_data: Dict[str, Any]):
         except Exception as db_error:
             logger.warning(f"⚠️ Failed to mark extraction as applied: {db_error}")
         
+        # Calculate and update completion percentage using database function
+        try:
+            completion_result = await db_manager.fetch_one(
+                "SELECT calculate_profile_completion($1) as completion",
+                user_id
+            )
+            if completion_result:
+                completion_percentage = completion_result['completion']
+                logger.info(f"✅ Profile completion updated: {completion_percentage}%")
+        except Exception as calc_error:
+            logger.warning(f"⚠️ Failed to calculate completion percentage: {calc_error}")
+        
         logger.info(f"✅ Extracted data applied successfully for user: {user_id}")
         return {
             "success": True,
