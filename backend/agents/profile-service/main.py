@@ -351,6 +351,39 @@ def map_skill_category(category: str) -> str:
     logger.warning(f"⚠️ Unknown skill category '{category}', defaulting to 'Technical'")
     return 'Technical'
 
+
+def calculate_profile_completion(profile_data: Dict) -> int:
+    """Calculate profile completion percentage based on filled fields"""
+    total_fields = 0
+    filled_fields = 0
+
+    # Personal info fields (8 fields, 40% weight)
+    personal_fields = ['full_name', 'email', 'phone', 'location', 
+                      'linkedin_url', 'github_url', 'portfolio_url', 'professional_summary']
+    for field in personal_fields:
+        total_fields += 1
+        if profile_data.get(field):
+            filled_fields += 1
+
+    # Section completion (60% weight total)
+    sections = [
+        ('education', profile_data.get('education', [])),
+        ('experience', profile_data.get('experience', [])),
+        ('projects', profile_data.get('projects', [])),
+        ('skills', profile_data.get('skills', [])),
+        ('certifications', profile_data.get('certifications', []))
+    ]
+
+    for section_name, section_data in sections:
+        total_fields += 1
+        if len(section_data) > 0:
+            filled_fields += 1
+
+    percentage = int((filled_fields / total_fields) * 100) if total_fields > 0 else 0
+    logger.info(f"📊 Profile completion: {filled_fields}/{total_fields} fields = {percentage}%")
+    return percentage
+
+
 def get_empty_profile_structure():
     """Return empty profile structure as fallback"""
     return {
@@ -748,7 +781,10 @@ async def get_profile(user_id: str):
             "certifications": certifications
         }
         
-        logger.info(f"✅ Profile fetched successfully for user: {user_id}")
+        # Calculate and add completion percentage
+        complete_profile["completion_percentage"] = calculate_profile_completion(complete_profile)
+        
+        logger.info(f"✅ Profile fetched successfully with {complete_profile['completion_percentage']}% completion for user: {user_id}")
         return complete_profile
         
     except Exception as e:

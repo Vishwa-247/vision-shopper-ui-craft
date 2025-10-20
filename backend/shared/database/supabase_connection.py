@@ -53,7 +53,8 @@ class SupabaseManager:
                 SUPABASE_DB_URL,
                 min_size=1,
                 max_size=10,
-                command_timeout=60
+                command_timeout=60,
+                statement_cache_size=0  # CRITICAL: Disable prepared statements for PgBouncer compatibility
             )
             logger.info("Connected to Supabase PostgreSQL successfully!")
         except Exception as e:

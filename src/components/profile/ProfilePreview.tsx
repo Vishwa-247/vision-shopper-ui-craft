@@ -10,6 +10,40 @@ import { useProfile } from "@/hooks/useProfile";
 export default function ProfilePreview() {
   const { profile } = useProfile();
 
+  const formatSocialUrl = (url: string | undefined, platform: 'linkedin' | 'github' | 'portfolio'): string | undefined => {
+    if (!url) return undefined;
+
+    // If already a full URL, return as-is
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+
+    // Clean up common prefixes
+    let cleanUrl = url
+      .replace(/^(linkedin|github|www\.|@|\|)/gi, '')
+      .replace(/\s+/g, '')
+      .trim();
+
+    // Remove "Vishwa Thouti" type text (name after username)
+    cleanUrl = cleanUrl.split(/[\s|]/)[0];
+
+    // Build proper URL based on platform
+    switch (platform) {
+      case 'linkedin':
+        // Handle both /in/ and /company/ formats
+        if (!cleanUrl.startsWith('/')) {
+          cleanUrl = `/in/${cleanUrl}`;
+        }
+        return `https://linkedin.com${cleanUrl}`;
+      case 'github':
+        return `https://github.com/${cleanUrl}`;
+      case 'portfolio':
+        return url.startsWith('www.') ? `https://${url}` : url;
+      default:
+        return url;
+    }
+  };
+
   if (!profile) {
     return (
       <div className="text-center py-12">
@@ -80,19 +114,19 @@ export default function ProfilePreview() {
               </div>
               <div className="flex justify-center gap-4 mt-3">
                 {personalInfo.linkedin && (
-                  <a href={personalInfo.linkedin} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
+                  <a href={formatSocialUrl(personalInfo.linkedin, 'linkedin')} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
                     <Linkedin className="h-4 w-4" />
                     LinkedIn
                   </a>
                 )}
                 {personalInfo.github && (
-                  <a href={personalInfo.github} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
+                  <a href={formatSocialUrl(personalInfo.github, 'github')} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
                     <Github className="h-4 w-4" />
                     GitHub
                   </a>
                 )}
                 {personalInfo.portfolio && (
-                  <a href={personalInfo.portfolio} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
+                  <a href={formatSocialUrl(personalInfo.portfolio, 'portfolio')} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
                     <Globe className="h-4 w-4" />
                     Portfolio
                   </a>
