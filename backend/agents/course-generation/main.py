@@ -99,6 +99,94 @@ async def generate_course_parallel(request: CourseGenerationRequest, background_
         logger.error(f"💥 Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# -------------------------
+# CRUD/Read Endpoints (REST)
+# -------------------------
+
+@app.get("/courses")
+async def list_user_courses(user_id: str):
+    """Return all courses for a user (newest first)."""
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(
+                f"{SUPABASE_URL}/rest/v1/courses",
+                headers={
+                    "apikey": SUPABASE_SERVICE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                },
+                params={
+                    "user_id": f"eq.{user_id}",
+                    "select": "*",
+                    "order": "created_at.desc",
+                },
+            )
+            r.raise_for_status()
+            return r.json()
+    except Exception as e:
+        logger.error(f"Error listing courses: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/courses/{course_id}")
+async def get_course(course_id: str):
+    """Return a single course by id."""
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(
+                f"{SUPABASE_URL}/rest/v1/courses",
+                headers={
+                    "apikey": SUPABASE_SERVICE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                },
+                params={
+                    "id": f"eq.{course_id}",
+                    "select": "*",
+                },
+            )
+            r.raise_for_status()
+            data = r.json()
+            return data[0] if data else {}
+    except Exception as e:
+        logger.error(f"Error getting course: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/courses/{course_id}/content")
+async def get_course_content(course_id: str):
+    """Return all course content for a given course id."""
+    try:
+        headers = {
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        }
+        async with httpx.AsyncClient() as client:
+            chapters_task = client.get(
+                f"{SUPABASE_URL}/rest/v1/course_chapters",
+                headers=headers,
+                params={"course_id": f"eq.{course_id}", "select": "*", "order": "order_index.asc"},
+            )
+            flashcards_task = client.get(
+                f"{SUPABASE_URL}/rest/v1/course_flashcards",
+                headers=headers,
+                params={"course_id": f"eq.{course_id}", "select": "*"},
+            )
+            mcqs_task = client.get(
+                f"{SUPABASE_URL}/rest/v1/course_mcqs",
+                headers=headers,
+                params={"course_id": f"eq.{course_id}", "select": "*"},
+            )
+
+            chapters_r, flashcards_r, mcqs_r = await asyncio.gather(
+                chapters_task, flashcards_task, mcqs_task
+            )
+
+            return {
+                "chapters": chapters_r.json(),
+                "flashcards": flashcards_r.json(),
+                "mcqs": mcqs_r.json(),
+            }
+    except Exception as e:
+        logger.error(f"Error getting course content: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 async def create_course(topic: str, user_id: str) -> str:
     """Create course record in Supabase"""
     async with httpx.AsyncClient() as client:
