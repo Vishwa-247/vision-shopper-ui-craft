@@ -775,13 +775,31 @@ async def import_progress(user_id: str = Form(...), file: UploadFile = File(...)
 async def generate_suggestions_endpoint(feedback: FeedbackRequest):
     """Generate enhanced AI suggestions for feedback"""
     try:
-        print(f"🤖 Generating AI suggestions for feedback: {feedback.feedback_id}")
+        print(f"\n{'='*60}")
+        print(f"🤖 AI SUGGESTIONS REQUEST")
+        print(f"{'='*60}")
+        print(f"📋 Feedback ID: {feedback.feedback_id}")
+        print(f"👤 User ID: {feedback.user_id}")
+        print(f"🎯 Problem: {feedback.problem_name}")
+        print(f"⭐ Rating: {feedback.rating}/5")
+        print(f"🔥 Difficulty: {feedback.difficulty}")
+        print(f"📦 Category: {feedback.category}")
+        print(f"⏱️  Time Spent: {feedback.time_spent} minutes")
+        print(f"😓 Struggled Areas: {feedback.struggled_areas}")
+        print(f"💭 Detailed Feedback: {feedback.detailed_feedback[:100]}...")
+        print(f"{'='*60}\n")
 
-        # Generate AI suggestions
+        print("🔄 Generating AI suggestions using Groq...")
         suggestions = await generate_enhanced_ai_suggestions(feedback)
+        print(f"✅ AI suggestions generated successfully!")
+        print(f"   - Approach Suggestions: {len(suggestions.approach_suggestions)}")
+        print(f"   - Key Concepts: {len(suggestions.key_concepts)}")
+        print(f"   - Similar Problems: {len(suggestions.similar_problems)}")
+        print(f"   - Learning Resources: {len(suggestions.learning_resources)}")
 
-        # Update feedback in database
+        print("💾 Updating feedback in Supabase...")
         await update_feedback_suggestions(feedback.feedback_id, suggestions)
+        print("✅ Database updated successfully!")
 
         return {
             "success": True,
@@ -790,29 +808,39 @@ async def generate_suggestions_endpoint(feedback: FeedbackRequest):
         }
 
     except Exception as e:
-        print(f"❌ Error generating suggestions: {e}")
+        print(f"❌ ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/feedback/chatbot-response")
 async def chatbot_response_endpoint(request: ChatbotRequest):
     """Generate contextual chatbot response"""
     try:
-        print(f"💬 Generating chatbot response for user: {request.user_id}")
+        print(f"\n{'='*60}")
+        print(f"💬 CHATBOT REQUEST")
+        print(f"{'='*60}")
+        print(f"👤 User ID: {request.user_id}")
+        print(f"❓ Query: {request.query}")
+        print(f"🎯 Context: {request.context}")
+        print(f"📊 User Level: {request.user_level}")
+        print(f"{'='*60}\n")
 
-        # Get user's feedback history
+        print("📚 Fetching user's feedback history...")
         feedback_history = await get_user_feedback_history(request.user_id)
+        print(f"📋 Found {len(feedback_history)} previous feedbacks")
 
-        # Generate contextual response
+        print("🤖 Generating contextual response...")
         response = await generate_contextual_chatbot_response(
             request.query, 
             request.user_id, 
             feedback_history
         )
+        print(f"✅ Response generated: {len(response.response)} characters")
+        print(f"🎯 Source: {response.source}")
 
         return response
 
     except Exception as e:
-        print(f"❌ Error generating chatbot response: {e}")
+        print(f"❌ ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/feedback/history/{user_id}")
@@ -823,6 +851,56 @@ async def get_feedback_history(user_id: str, limit: int = 10):
         return {"success": True, "feedbacks": feedback_history}
     except Exception as e:
         print(f"❌ Error fetching feedback history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/feedback/youtube-recommendations")
+async def get_youtube_recommendations(request: dict):
+    """Fetch YouTube recommendations for a problem"""
+    try:
+        print(f"\n{'='*60}")
+        print(f"📺 YOUTUBE RECOMMENDATIONS REQUEST")
+        print(f"{'='*60}")
+        print(f"🎯 Problem: {request.get('problemName', 'Unknown')}")
+        print(f"🔥 Difficulty: {request.get('difficulty', 'Unknown')}")
+        print(f"📦 Category: {request.get('category', 'Unknown')}")
+        print(f"⭐ Rating: {request.get('rating', 0)}/5")
+        print(f"😓 Struggled Areas: {request.get('struggledWith', [])}")
+        print(f"{'='*60}\n")
+
+        # For now, return mock recommendations
+        # TODO: Integrate with YouTube Data API v3
+        recommendations = [
+            {
+                "title": f"Learn {request.get('category', 'DSA')} - {request.get('difficulty', 'Medium')} Level",
+                "description": f"Comprehensive tutorial covering {request.get('category', 'DSA')} concepts",
+                "url": "https://youtube.com/watch?v=example1",
+                "thumbnail": "https://img.youtube.com/vi/example1/mqdefault.jpg",
+                "duration": "15:30",
+                "relevanceScore": 0.9
+            },
+            {
+                "title": f"{request.get('problemName', 'Problem')} Solution Walkthrough",
+                "description": f"Step-by-step solution for {request.get('problemName', 'this problem')}",
+                "url": "https://youtube.com/watch?v=example2",
+                "thumbnail": "https://img.youtube.com/vi/example2/mqdefault.jpg",
+                "duration": "12:45",
+                "relevanceScore": 0.85
+            },
+            {
+                "title": f"Master {request.get('category', 'DSA')} Patterns",
+                "description": f"Common patterns and techniques in {request.get('category', 'DSA')}",
+                "url": "https://youtube.com/watch?v=example3",
+                "thumbnail": "https://img.youtube.com/vi/example3/mqdefault.jpg",
+                "duration": "20:15",
+                "relevanceScore": 0.8
+            }
+        ]
+
+        print(f"✅ Generated {len(recommendations)} YouTube recommendations")
+        return {"success": True, "videos": recommendations}
+
+    except Exception as e:
+        print(f"❌ Error fetching YouTube recommendations: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

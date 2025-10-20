@@ -99,22 +99,53 @@ const InlineFeedback = ({ isExpanded, onToggle, problemName, difficulty, company
 
       if (dbError) throw dbError;
 
-      // Generate AI suggestions in background
-      console.log('Invoking AI suggestions generation for feedback:', savedFeedback.id);
-      supabase.functions.invoke('generate-feedback-suggestions', {
-        body: { feedbackId: savedFeedback.id }
-      }).then(({ data: aiData, error: aiError }) => {
-        if (aiError) {
-          console.error('Edge function error:', aiError);
+      // Generate AI suggestions using backend API
+      console.log('🚀 Submitting feedback to backend:', {
+        feedback_id: savedFeedback.id,
+        user_id: user.id,
+        problem_name: problemName,
+        rating: experience
+      });
+
+      try {
+        const response = await fetch('http://localhost:8004/feedback/generate-suggestions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            feedback_id: savedFeedback.id,
+            user_id: user.id,
+            problem_name: problemName,
+            difficulty: difficulty,
+            category: company,
+            rating: experience === 'very-easy' ? 5 : experience === 'easy' ? 4 : experience === 'medium' ? 3 : experience === 'hard' ? 2 : 1,
+            time_spent: null,
+            struggled_areas: struggledAreas,
+            detailed_feedback: detailedFeedback,
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log("✅ AI suggestions generated successfully:", result);
+        } else {
+          const errorText = await response.text();
+          console.error("❌ Error generating AI suggestions:", errorText);
           toast({
             title: "Warning",
             description: "Feedback saved but AI suggestions failed. Please check your API keys.",
             variant: "destructive"
           });
-        } else {
-          console.log('AI suggestions generated successfully:', aiData);
         }
-      });
+      } catch (error) {
+        console.error("❌ Network error generating AI suggestions:", error);
+        toast({
+          title: "Warning",
+          description: "Feedback saved but AI suggestions failed. Please check your API keys.",
+          variant: "destructive"
+        });
+      }
 
       toast({
         title: "Feedback submitted successfully!",

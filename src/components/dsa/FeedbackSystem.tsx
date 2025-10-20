@@ -130,41 +130,75 @@ export const FeedbackSystem: React.FC<FeedbackSystemProps> = ({
       // Show loading toast for AI suggestions
       toast.info("Generating AI suggestions... This may take a few seconds");
 
-      // Generate AI suggestions using edge function
+      // Generate AI suggestions using backend API
       try {
-        const { error: aiError } = await supabase.functions.invoke('generate-feedback-suggestions', {
-          body: { feedbackId: savedFeedback.id }
+        console.log('🚀 Submitting feedback to backend:', {
+          feedback_id: savedFeedback.id,
+          user_id: currentUser.id,
+          problem_name: problemName,
+          rating: feedback.rating
         });
 
-        if (aiError) {
-          console.error('Error generating AI suggestions:', aiError);
-          toast.error("Failed to generate AI suggestions. Please try again later");
-        } else {
-          console.log("AI suggestions generated successfully");
+        const response = await fetch('http://localhost:8004/feedback/generate-suggestions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            feedback_id: savedFeedback.id,
+            user_id: currentUser.id,
+            problem_name: problemName,
+            difficulty: difficulty,
+            category: category,
+            rating: feedback.rating,
+            time_spent: feedback.timeSpent || null,
+            struggled_areas: feedback.struggledWith,
+            detailed_feedback: feedback.additionalFeedback,
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log("✅ AI suggestions generated successfully:", result);
           toast.success("AI suggestions generated! Check your feedback history to see personalized recommendations");
+        } else {
+          const errorText = await response.text();
+          console.error("❌ Error generating AI suggestions:", errorText);
+          toast.error("Failed to generate AI suggestions. Please try again later");
         }
       } catch (error) {
-        console.error("Error generating AI suggestions:", error);
+        console.error("❌ Network error generating AI suggestions:", error);
         toast.error("Network error: Could not connect to AI service");
       }
 
-      // Fetch YouTube recommendations
-      const { data, error } = await supabase.functions.invoke(
-        "youtube-recommendations",
-        {
-          body: {
+      // Fetch YouTube recommendations from backend
+      try {
+        console.log('📺 Fetching YouTube recommendations from backend...');
+        const response = await fetch('http://localhost:8004/feedback/youtube-recommendations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
             problemName,
-            difficulty,
             category,
+            difficulty,
             rating: feedback.rating,
             struggledWith: feedback.struggledWith,
-            feedback: feedback.additionalFeedback,
-          },
-        }
-      );
+          }),
+        });
 
-      if (error) {
-        console.error("YouTube recommendations error:", error);
+        if (response.ok) {
+          const data = await response.json();
+          console.log("✅ YouTube recommendations fetched:", data.videos?.length || 0, "videos");
+          setRecommendations(data?.videos || []);
+        } else {
+          console.error("❌ Error fetching YouTube recommendations");
+          setRecommendations([]);
+        }
+      } catch (error) {
+        console.error("❌ Network error fetching YouTube recommendations:", error);
+        setRecommendations([]);
       }
 
       toast.success("Feedback saved! AI suggestions are being generated...");

@@ -71,12 +71,13 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    // Constrain x (horizontal) - allow some movement but keep within bounds
+    // Constrain X (horizontal) - keep within bounds
     let constrainedX = Math.max(16, x); // Minimum 16px from left
     constrainedX = Math.min(viewportWidth - width - 16, constrainedX); // Minimum 16px from right
 
-    // Constrain y (vertical) - keep bottom anchored
-    const constrainedY = viewportHeight - height - 24;
+    // Constrain Y (vertical) - keep within bounds but RESPECT drag position
+    let constrainedY = Math.max(16, y); // Minimum 16px from top
+    constrainedY = Math.min(viewportHeight - height - 16, constrainedY); // Minimum 16px from bottom
 
     return { x: constrainedX, y: constrainedY };
   };
@@ -98,8 +99,30 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
 
   // Reset position when component mounts to ensure visibility
   useEffect(() => {
+    // Only reset position on first mount if position is off-screen
     const defaultPos = getDefaultPosition();
-    setChatbotPosition(defaultPos);
+    const isOffScreen = 
+      chatbotPosition.x < 0 || 
+      chatbotPosition.x > window.innerWidth - chatbotSize.width ||
+      chatbotPosition.y < 0 ||
+      chatbotPosition.y > window.innerHeight - chatbotSize.height;
+
+    if (isOffScreen) {
+      console.log('⚠️ Chatbot position is off-screen, resetting to default');
+      setChatbotPosition(defaultPos);
+    } else {
+      console.log('✅ Chatbot position is valid:', chatbotPosition);
+    }
+  }, []); // Only run once on mount
+
+  // Handle scroll position - chatbot should stay fixed
+  useEffect(() => {
+    const handleScroll = () => {
+      console.log('📜 Page scrolled, chatbot remains fixed');
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   // Save size/position to localStorage
@@ -173,30 +196,50 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
         console.log('Backend service unavailable, falling back to edge function');
       }
 
-      // Fallback to edge function
-      const { data: edgeData, error: edgeError } = await supabase.functions.invoke('dsa-intelligent-search', {
-        body: {
+      // Fallback to backend API
+      console.log('💬 Sending chatbot message to backend:', {
+        query: userMessage.content,
+        user_id: user?.id,
+        timestamp: new Date().toISOString()
+      });
+
+      const backendResponse = await fetch('http://localhost:8004/feedback/chatbot-response', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           query: userMessage.content,
+          user_id: user?.id || 'anonymous',
           context: 'dsa_practice',
-          userLevel: 'intermediate'
-        }
+          user_level: 'intermediate'
+        })
       });
 
-      if (edgeError) throw edgeError;
+      if (backendResponse.ok) {
+        const data = await backendResponse.json();
+        console.log('📥 Received chatbot response:', {
+          source: data.source,
+          response_length: data.response.length,
+          suggestions: data.suggestions?.length || 0
+        });
 
-      const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: edgeData?.response || 'I apologize, but I couldn\'t generate a response. Please try again.',
-        isBot: true,
-        timestamp: new Date()
-      };
+        const botMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          content: data.response || 'I apologize, but I couldn\'t generate a response. Please try again.',
+          isBot: true,
+          timestamp: new Date()
+        };
 
-      setMessages(prev => [...prev, botMessage]);
-      
-      toast({
-        title: "AI Response Generated",
-        description: "Source: AI Knowledge base",
-      });
+        setMessages(prev => [...prev, botMessage]);
+        
+        toast({
+          title: "AI Response Generated",
+          description: `Source: ${data.source === 'contextual_ai' ? 'Personalized AI with your feedback history' : 'AI Knowledge base'}`,
+        });
+      } else {
+        throw new Error('Backend chatbot service unavailable');
+      }
     } catch (error) {
       console.error('Error calling search service:', error);
       
@@ -515,25 +558,32 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
       size={chatbotSize}
       position={chatbotPosition}
       onDragStop={(e, d) => {
-        console.log('Drag stopped at:', d.x, d.y);
+        console.log('🎯 Drag stopped at:', { x: d.x, y: d.y });
         const constrained = constrainToViewport(d.x, d.y, chatbotSize.width, chatbotSize.height);
-        console.log('Constrained to:', constrained);
+        console.log('📍 Constrained position:', constrained);
         setChatbotPosition(constrained);
+
+        // Save to localStorage
+        const deviceType = window.innerWidth < 640 ? 'mobile' : window.innerWidth < 1024 ? 'tablet' : 'desktop';
+        localStorage.setItem(`chatbot-position-${deviceType}`, JSON.stringify(constrained));
       }}
       onResizeStop={(e, direction, ref, delta, position) => {
         const newHeight = parseInt(ref.style.height);
         const newWidth = parseInt(ref.style.width);
-        console.log('Resized to:', newWidth, 'x', newHeight);
+        console.log('📏 Resized to:', { width: newWidth, height: newHeight });
+        console.log('📍 Position during resize:', position);
 
-        setChatbotSize({
-          width: newWidth,
-          height: newHeight,
-        });
-        
-        // Keep bottom-right anchored during resize
+        setChatbotSize({ width: newWidth, height: newHeight });
+
+        // Constrain position to keep chatbot visible
         const constrained = constrainToViewport(position.x, position.y, newWidth, newHeight);
-        console.log('Position after resize:', constrained);
+        console.log('📍 Final constrained position:', constrained);
         setChatbotPosition(constrained);
+
+        // Save both size and position
+        const deviceType = window.innerWidth < 640 ? 'mobile' : window.innerWidth < 1024 ? 'tablet' : 'desktop';
+        localStorage.setItem(`chatbot-size-${deviceType}`, JSON.stringify({ width: newWidth, height: newHeight }));
+        localStorage.setItem(`chatbot-position-${deviceType}`, JSON.stringify(constrained));
       }}
       minWidth={360}
       minHeight={400}
