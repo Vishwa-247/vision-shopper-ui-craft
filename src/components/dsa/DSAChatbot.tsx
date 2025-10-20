@@ -59,12 +59,26 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
     const height = window.innerHeight;
     const defaultSize = getDefaultSize();
     
-    // Always position at bottom-right, with safe padding
-    // Ensure minimum 20px from all edges
-    const x = Math.max(20, Math.min(width - defaultSize.width - 20, width - defaultSize.width - 24));
-    const y = Math.max(20, Math.min(height - defaultSize.height - 20, height - defaultSize.height - 24));
+    // Position at bottom-right with fixed 24px padding
+    const x = width - defaultSize.width - 24;
+    const y = height - defaultSize.height - 24;
     
     return { x, y };
+  };
+
+  // Helper function to constrain position within viewport
+  const constrainToViewport = (x: number, y: number, width: number, height: number) => {
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // Constrain x (horizontal) - allow some movement but keep within bounds
+    let constrainedX = Math.max(16, x); // Minimum 16px from left
+    constrainedX = Math.min(viewportWidth - width - 16, constrainedX); // Minimum 16px from right
+
+    // Constrain y (vertical) - keep bottom anchored
+    const constrainedY = viewportHeight - height - 24;
+
+    return { x: constrainedX, y: constrainedY };
   };
 
   // Load saved size/position from localStorage
@@ -501,38 +515,25 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
       size={chatbotSize}
       position={chatbotPosition}
       onDragStop={(e, d) => {
-        const viewportHeight = window.innerHeight;
-        const viewportWidth = window.innerWidth;
-        
-        // Constrain position within viewport with 20px padding
-        let newX = Math.max(20, d.x);
-        newX = Math.min(viewportWidth - chatbotSize.width - 20, newX);
-        
-        let newY = Math.max(20, d.y);
-        newY = Math.min(viewportHeight - chatbotSize.height - 20, newY);
-        
-        setChatbotPosition({ x: newX, y: newY });
+        console.log('Drag stopped at:', d.x, d.y);
+        const constrained = constrainToViewport(d.x, d.y, chatbotSize.width, chatbotSize.height);
+        console.log('Constrained to:', constrained);
+        setChatbotPosition(constrained);
       }}
       onResizeStop={(e, direction, ref, delta, position) => {
         const newHeight = parseInt(ref.style.height);
         const newWidth = parseInt(ref.style.width);
-        const viewportHeight = window.innerHeight;
-        const viewportWidth = window.innerWidth;
-        
+        console.log('Resized to:', newWidth, 'x', newHeight);
+
         setChatbotSize({
           width: newWidth,
           height: newHeight,
         });
         
-        // Constrain x position within viewport
-        let newX = position.x;
-        newX = Math.max(16, newX); // Left boundary
-        newX = Math.min(viewportWidth - newWidth - 16, newX); // Right boundary
-        
-        // Keep bottom anchored to viewport when resizing
-        const newY = viewportHeight - newHeight - 24;
-        
-        setChatbotPosition({ x: newX, y: newY });
+        // Keep bottom-right anchored during resize
+        const constrained = constrainToViewport(position.x, position.y, newWidth, newHeight);
+        console.log('Position after resize:', constrained);
+        setChatbotPosition(constrained);
       }}
       minWidth={360}
       minHeight={400}
@@ -591,6 +592,24 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
               <span>DSA Assistant</span>
             </CardTitle>
             <div className="flex gap-1">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  const defaultPos = getDefaultPosition();
+                  const defaultSize = getDefaultSize();
+                  setChatbotPosition(defaultPos);
+                  setChatbotSize(defaultSize);
+                  toast({
+                    title: "Position reset",
+                    description: "The chatbot has been moved to the default position",
+                  });
+                }}
+                title="Reset position"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
               <Button variant="ghost" size="sm" onClick={onToggleMinimize}>
                 <Minimize2 className="h-4 w-4" />
               </Button>

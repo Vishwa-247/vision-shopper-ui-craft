@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Star, Clock, TrendingUp, ChevronDown, ChevronUp, BookOpen, Lightbulb, Target, Sparkles, Copy, CheckCircle2 } from 'lucide-react';
+import { Star, Clock, TrendingUp, ChevronDown, ChevronUp, BookOpen, Lightbulb, Target, Sparkles, Copy, CheckCircle2, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -271,6 +271,18 @@ const FeedbacksList = () => {
                 </div>
               )}
             </CardHeader>
+
+            {!feedback.ai_suggestions && (
+              <CardContent className="pt-0">
+                <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg border border-dashed">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Generating AI Suggestions...</p>
+                    <p className="text-xs text-muted-foreground">Our AI is analyzing your feedback and creating personalized recommendations.</p>
+                  </div>
+                </div>
+              </CardContent>
+            )}
 
             {feedback.ai_suggestions && (
               <CardContent className="space-y-3 pt-0">

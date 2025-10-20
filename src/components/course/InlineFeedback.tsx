@@ -100,11 +100,19 @@ const InlineFeedback = ({ isExpanded, onToggle, problemName, difficulty, company
       if (dbError) throw dbError;
 
       // Generate AI suggestions in background
+      console.log('Invoking AI suggestions generation for feedback:', savedFeedback.id);
       supabase.functions.invoke('generate-feedback-suggestions', {
         body: { feedbackId: savedFeedback.id }
-      }).then(({ error }) => {
-        if (error) {
-          console.error('Error generating AI suggestions:', error);
+      }).then(({ data: aiData, error: aiError }) => {
+        if (aiError) {
+          console.error('Edge function error:', aiError);
+          toast({
+            title: "Warning",
+            description: "Feedback saved but AI suggestions failed. Please check your API keys.",
+            variant: "destructive"
+          });
+        } else {
+          console.log('AI suggestions generated successfully:', aiData);
         }
       });
 

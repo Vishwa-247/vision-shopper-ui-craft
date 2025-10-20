@@ -13,11 +13,21 @@ serve(async (req) => {
   }
 
   try {
+    console.log('=== Edge Function Started ===');
     const { feedbackId } = await req.json();
+    console.log('Feedback ID:', feedbackId);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const groqApiKey = Deno.env.get('GROQ_API_KEY');
+    
+    console.log('Supabase URL present:', !!supabaseUrl);
+    console.log('Supabase Key present:', !!supabaseKey);
+    console.log('Groq API Key present:', !!groqApiKey);
+    
+    if (!groqApiKey) {
+      throw new Error('GROQ_API_KEY not configured in Supabase secrets');
+    }
     
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -29,8 +39,16 @@ serve(async (req) => {
       .single();
 
     if (fetchError || !feedback) {
+      console.error('Feedback fetch error:', fetchError);
       throw new Error('Feedback not found');
     }
+    
+    console.log('Feedback retrieved successfully:', {
+      problem: feedback.problem_name,
+      difficulty: feedback.difficulty,
+      rating: feedback.rating,
+      struggled_areas: feedback.struggled_areas
+    });
 
     const prompt = `You are an expert programming mentor analyzing a student's feedback on a DSA problem.
 
@@ -83,6 +101,7 @@ Format your response as valid JSON with this structure:
   "overallAdvice": "..."
 }`;
 
+    console.log('Calling Groq API...');
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -100,50 +119,78 @@ Format your response as valid JSON with this structure:
       }),
     });
 
+    console.log('Groq API response status:', response.status);
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Groq API error:', errorText);
-      throw new Error('Failed to generate suggestions');
+      throw new Error(`Failed to generate suggestions: ${errorText}`);
     }
 
     const data = await response.json();
     const content = data.choices[0].message.content;
+    console.log('Groq response received, length:', content.length);
     
     // Parse the JSON response
     let suggestions;
     try {
       suggestions = JSON.parse(content);
+      console.log('Successfully parsed JSON response');
     } catch (e) {
+      console.log('Failed to parse JSON directly, trying markdown extraction');
       // If parsing fails, try to extract JSON from markdown code blocks
       const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/);
       if (jsonMatch) {
         suggestions = JSON.parse(jsonMatch[1]);
+        console.log('Successfully extracted JSON from markdown');
       } else {
+        console.error('Failed to parse AI response:', content);
         throw new Error('Failed to parse AI response');
       }
     }
 
+    console.log('Parsed suggestions:', {
+      approachSuggestions: suggestions.approachSuggestions?.length || 0,
+      keyConcepts: suggestions.keyConcepts?.length || 0,
+      similarProblems: suggestions.similarProblems?.length || 0,
+      learningResources: suggestions.learningResources?.length || 0
+    });
+
+    // Convert to snake_case for database compatibility
+    const dbSuggestions = {
+      approach_suggestions: suggestions.approachSuggestions || [],
+      key_concepts: suggestions.keyConcepts || [],
+      similar_problems: suggestions.similarProblems || [],
+      learning_resources: suggestions.learningResources || [],
+      overall_advice: suggestions.overallAdvice || ''
+    };
+
     // Update feedback with AI suggestions
+    console.log('Updating database with suggestions...');
     const { error: updateError } = await supabase
       .from('dsa_feedbacks')
       .update({
-        ai_suggestions: suggestions,
-        ai_resources: suggestions.learningResources || []
+        ai_suggestions: dbSuggestions,
+        ai_resources: dbSuggestions.learning_resources
       })
       .eq('id', feedbackId);
 
     if (updateError) {
-      console.error('Update error:', updateError);
+      console.error('Database update error:', updateError);
       throw new Error('Failed to save suggestions');
     }
+    
+    console.log('Database updated successfully');
 
+    console.log('=== Edge Function Complete ===');
     return new Response(
-      JSON.stringify({ success: true, suggestions }),
+      JSON.stringify({ success: true, suggestions: dbSuggestions }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
+    console.error('=== Edge Function Error ===');
     console.error('Error:', error);
+    console.error('=== End Error ===');
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
