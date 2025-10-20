@@ -131,13 +131,31 @@ export const FeedbackSystem: React.FC<FeedbackSystemProps> = ({
 
       if (dbError) throw dbError;
 
-      // Generate AI suggestions in background
-      supabase.functions.invoke('generate-feedback-suggestions', {
-        body: { feedbackId: savedFeedback.id }
-      }).then(({ error }) => {
-        if (error) {
-          console.error('Error generating AI suggestions:', error);
+      // Generate AI suggestions using backend service
+      fetch('http://localhost:8007/generate-suggestions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          feedback_id: savedFeedback.id,
+          user_id: currentUser.id,
+          problem_name: problemName,
+          difficulty: difficulty,
+          category: category,
+          rating: feedback.rating,
+          time_spent: feedback.timeSpent || null,
+          struggled_areas: feedback.struggledWith,
+          detailed_feedback: feedback.additionalFeedback
+        })
+      }).then(response => {
+        if (response.ok) {
+          console.log('AI suggestions generated successfully');
+        } else {
+          console.error('Error generating AI suggestions:', response.statusText);
         }
+      }).catch(error => {
+        console.error('Error generating AI suggestions:', error);
       });
 
       // Fetch YouTube recommendations

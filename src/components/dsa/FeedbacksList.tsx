@@ -37,6 +37,56 @@ const FeedbacksList = () => {
 
   useEffect(() => {
     fetchFeedbacks();
+
+    // Subscribe to real-time feedback updates
+    const setupRealtimeSubscription = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const channel = supabase
+        .channel('dsa-feedbacks')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'dsa_feedbacks',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('New feedback added:', payload);
+            setFeedbacks(prev => [payload.new as Feedback, ...prev]);
+            toast.success('New feedback added!');
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'dsa_feedbacks',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Feedback updated with AI suggestions:', payload);
+            setFeedbacks(prev => 
+              prev.map(f => f.id === payload.new.id ? payload.new as Feedback : f)
+            );
+            toast.success('AI suggestions updated!');
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    };
+
+    const cleanup = setupRealtimeSubscription();
+    
+    return () => {
+      cleanup.then(cleanupFn => cleanupFn && cleanupFn());
+    };
   }, []);
 
   const fetchFeedbacks = async () => {

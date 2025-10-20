@@ -15,6 +15,7 @@ import { useFavorites } from "@/hooks/useFavorites";
 import FavoritesTable from "@/components/FavoritesTable";
 import DSAChatbot from "@/components/dsa/DSAChatbot";
 import { FeedbackSystem } from "@/components/dsa/FeedbackSystem";
+import FeedbacksList from "@/components/dsa/FeedbacksList";
 
 const DSASheet = () => {
   const [activeTab, setActiveTab] = useState("topics");
@@ -236,18 +237,30 @@ const DSASheet = () => {
             </TabsContent>
 
             <TabsContent value="feedbacks" className="mt-8">
-              <Card className="bg-card/50 backdrop-blur-sm">
-                <CardContent className="p-6">
-                  <h3 className="text-xl font-semibold text-foreground mb-4">Problem Feedback & Learning Progress</h3>
-                  <p className="text-muted-foreground mb-6">Track your problem-solving journey and get personalized recommendations</p>
-                  <FeedbackSystem 
-                    problemId="general-feedback"
-                    problemName="DSA Practice Feedback"
-                    difficulty="medium"
-                    category="general"
-                  />
-                </CardContent>
-              </Card>
+              <div className="space-y-6">
+                {/* Feedback Submission */}
+                <Card className="bg-card/50 backdrop-blur-sm">
+                  <CardContent className="p-6">
+                    <h3 className="text-xl font-semibold text-foreground mb-4">Submit General Feedback</h3>
+                    <p className="text-muted-foreground mb-6">Share your overall DSA learning experience and get personalized recommendations</p>
+                    <FeedbackSystem 
+                      problemId="general-feedback"
+                      problemName="DSA Practice Feedback"
+                      difficulty="medium"
+                      category="general"
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* Feedback History */}
+                <Card className="bg-card/50 backdrop-blur-sm">
+                  <CardContent className="p-6">
+                    <h3 className="text-xl font-semibold text-foreground mb-4">Your Feedback History</h3>
+                    <p className="text-muted-foreground mb-6">View all your feedback submissions with AI-generated suggestions</p>
+                    <FeedbacksList />
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           </Tabs>
 

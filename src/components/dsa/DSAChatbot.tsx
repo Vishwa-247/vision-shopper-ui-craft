@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
   id: string;
@@ -117,17 +118,20 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
     setIsLoading(true);
 
     try {
-      // Try enhanced AI search first
-      const response = await fetch('https://jwmsgrodliegekbrhvgt.supabase.co/functions/v1/dsa-intelligent-search', {
+      // Get current user for feedback context
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Try enhanced AI search with feedback context
+      const response = await fetch('http://localhost:8007/chatbot-response', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3bXNncm9kbGllZ2VrYnJodmd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0NzU3OTEsImV4cCI6MjA3MjA1MTc5MX0.Nk7JTZQx6Z5tKiVLHeZXUvy8Zkqk3Lc6pftr3H_25RY`
         },
         body: JSON.stringify({
           query: userMessage.content,
+          user_id: user?.id || 'anonymous',
           context: 'dsa_practice',
-          userLevel: 'intermediate'
+          user_level: 'intermediate'
         })
       });
 
@@ -145,10 +149,10 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
         
         toast({
           title: "AI Response Generated",
-          description: `Source: ${data.source === 'web_search' ? 'Real-time web search' : 'Knowledge base'}`,
+          description: `Source: ${data.source === 'contextual_ai' ? 'Personalized AI with your feedback history' : 'AI Knowledge base'}`,
         });
       } else {
-        throw new Error('Search service unavailable');
+        throw new Error('DSA Feedback service unavailable');
       }
     } catch (error) {
       console.error('Error calling search service:', error);
@@ -370,6 +374,20 @@ Feel free to ask about algorithms, data structures, or problem-solving strategie
                         ),
                         pre: ({ children }) => (
                           <pre className="bg-muted p-3 rounded-lg overflow-x-auto text-xs font-mono mt-2">{children}</pre>
+                        ),
+                        a: ({ href, children }) => (
+                          <a 
+                            href={href} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline font-medium"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(href, '_blank');
+                            }}
+                          >
+                            {children}
+                          </a>
                         )
                       }}
                     >
