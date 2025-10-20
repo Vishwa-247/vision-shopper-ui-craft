@@ -16,18 +16,21 @@ Author: StudyMate Platform
 Version: 1.0.0
 """
 
-import os
 import json
 import logging
+import os
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional, Any
-from pydantic import BaseModel, Field
-import uvicorn
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import uvicorn
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, File, UploadFile, Form
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+import tempfile
+import os
 
 # Load environment variables from backend root
 backend_root = Path(__file__).parent.parent.parent
@@ -274,55 +277,111 @@ async def get_interview(interview_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/interviews/{interview_id}/answer")
-async def submit_answer(interview_id: str, response: QuestionResponse):
-    """Submit an answer to the current question."""
+async def submit_answer(
+    interview_id: str,
+    audio: UploadFile = File(...),
+    question_id: str = Form(...),
+    face_metrics: str = Form(None)
+):
+    """Submit audio answer with face metrics"""
     try:
         if interview_id not in interview_sessions:
             raise HTTPException(status_code=404, detail="Interview not found")
-        
+
         session = interview_sessions[interview_id]
-        
-        # Analyze the answer (simplified)
-        feedback = analyze_answer(
-            session["questions"][session["current_question"]],
-            response.answer
-        )
-        
-        # Update session with answer and feedback
-        session["questions"][session["current_question"]]["answer"] = response.answer
-        session["questions"][session["current_question"]]["feedback"] = feedback
-        session["questions"][session["current_question"]]["thinking_time"] = response.thinking_time
-        
-        # Move to next question
-        session["current_question"] += 1
-        
-        # Check if interview is complete
-        if session["current_question"] >= len(session["questions"]):
-            session["status"] = "completed"
-            session["end_time"] = datetime.utcnow().isoformat()
-        
-        interview_sessions[interview_id] = session
-        
-        next_question = None
-        if session["current_question"] < len(session["questions"]):
-            next_question = session["questions"][session["current_question"]]
-        
-        return {
-            "success": True,
-            "feedback": feedback,
-            "next_question": next_question,
-            "progress": {
-                "current": session["current_question"],
-                "total": len(session["questions"]),
-                "completed": session["status"] == "completed"
+
+        # Save audio temporarily
+        temp_audio_path = None
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as tmp:
+                content = await audio.read()
+                tmp.write(content)
+                temp_audio_path = tmp.name
+
+            # TODO: Send to Deepgram/Whisper for transcription
+            # For now, use mock transcript
+            transcript = "This is a mock transcript. [Audio transcription not yet implemented]"
+
+            # Parse face metrics
+            face_data = {}
+            if face_metrics:
+                import json
+                face_data = json.loads(face_metrics)
+
+            # Analyze communication
+            from speech_analyzer import SpeechAnalyzer
+            analyzer = SpeechAnalyzer()
+            comm_metrics = analyzer.analyze_communication(transcript, duration_seconds=45)
+
+            # Calculate scores
+            technical_score = 75  # Placeholder
+            communication_score = comm_metrics['scores']['overall_communication']
+            nonverbal_score = face_data.get('avg_confident', 50)
+
+            # Store answer
+            question_idx = int(question_id)
+            session["questions"][question_idx]["answer"] = transcript
+            session["questions"][question_idx]["audio_path"] = temp_audio_path
+            session["questions"][question_idx]["scores"] = {
+                "technical": technical_score,
+                "communication": communication_score,
+                "nonverbal": nonverbal_score
             }
-        }
-        
+            session["questions"][question_idx]["metrics"] = {
+                "communication": comm_metrics,
+                "face": face_data
+            }
+
+            # Move to next question
+            session["current_question"] = question_idx + 1
+
+            # Check if complete
+            if session["current_question"] >= len(session["questions"]):
+                session["status"] = "completed"
+                session["end_time"] = datetime.utcnow().isoformat()
+                # Generate overall analysis
+                analysis = generate_overall_analysis(session)
+                session["analysis"] = analysis
+                
+                return {
+                    "success": True,
+                    "transcript": transcript,
+                    "scores": {
+                        "technical": technical_score,
+                        "communication": communication_score,
+                        "nonverbal": nonverbal_score
+                    },
+                    "message": "Interview completed!",
+                    "analysis": analysis,
+                    "completed": True
+                }
+            else:
+                return {
+                    "success": True,
+                    "transcript": transcript,
+                    "scores": {
+                        "technical": technical_score,
+                        "communication": communication_score,
+                        "nonverbal": nonverbal_score
+                    },
+                    "next_question": session["questions"][session["current_question"]],
+                    "completed": False
+                }
+
+        finally:
+            # Clean up temp file (optional - keep for playback)
+            pass
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"💥 Error submitting answer: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.options("/interviews/{interview_id}/answer")
+async def answer_options():
+    """Handle OPTIONS request for CORS preflight"""
+    return {"message": "OK"}
 
 @app.post("/interviews/{interview_id}/analyze")
 async def analyze_interview(interview_id: str, analysis_data: dict):

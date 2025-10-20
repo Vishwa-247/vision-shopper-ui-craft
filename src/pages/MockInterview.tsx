@@ -5,7 +5,6 @@
 // import InterviewTypeSelector from "@/components/interview/InterviewTypeSelector";
 // import TechnicalInterviewSetup from "@/components/interview/TechnicalInterviewSetup";
 // import InterviewSetup from "@/components/interview/InterviewSetup";
-// import VideoRecorder from "@/components/interview/VideoRecorder";
 // import Container from "@/components/ui/Container";
 // import { ChevronLeft, ChevronRight, Download, Loader2 } from "lucide-react";
 // import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -502,11 +501,11 @@
 
 
 
+import InterviewCapture from "@/components/interview/InterviewCapture";
 import InterviewTypeSelector from "@/components/interview/InterviewTypeSelector";
 import MetricsPanel from "@/components/interview/MetricsPanel";
 import TechnicalInterviewSetup from "@/components/interview/TechnicalInterviewSetup";
 import UnifiedInterviewSetup from "@/components/interview/UnifiedInterviewSetup";
-import VideoRecorder from "@/components/interview/VideoRecorder";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -518,7 +517,6 @@ import {
 import Container from "@/components/ui/Container";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
-import InterviewCapture from "@/components/interview/InterviewCapture";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -622,6 +620,16 @@ const MockInterview = () => {
       words_per_minute: 0,
       clarity_score: 0,
     },
+  });
+
+  // Add aggregated face metrics for submission
+  const [aggregatedFaceMetrics, setAggregatedFaceMetrics] = useState({
+    frameCount: 0,
+    totalConfident: 0,
+    totalStressed: 0,
+    totalNervous: 0,
+    blinkCount: 0,
+    lookingAtCameraCount: 0,
   });
 
   const handleTypeSelection = (type: string) => {
@@ -936,6 +944,8 @@ const MockInterview = () => {
                     });
                     if (!res.ok) return;
                     const data = await res.json();
+
+                    // Update real-time display
                     setMetricsData(prev => ({
                       ...prev,
                       facialData: {
@@ -949,21 +959,64 @@ const MockInterview = () => {
                         head_pose: data.face_tracking?.head_pose ?? { pitch: 0, yaw: 0, roll: 0 },
                       },
                     }));
+
+                    // Aggregate metrics for submission
+                    setAggregatedFaceMetrics(prev => ({
+                      frameCount: prev.frameCount + 1,
+                      totalConfident: prev.totalConfident + (data.metrics?.confident ?? 0),
+                      totalStressed: prev.totalStressed + (data.metrics?.stressed ?? 0),
+                      totalNervous: prev.totalNervous + (data.metrics?.nervous ?? 0),
+                      blinkCount: prev.blinkCount + (data.face_tracking?.blink_count ?? 0),
+                      lookingAtCameraCount: prev.lookingAtCameraCount + (data.face_tracking?.looking_at_camera ? 1 : 0),
+                    }));
                   } catch (e) {
                     console.error('Face frame analysis error:', e);
                   }
                 }}
                 onAudioReady={async (blob) => {
                   try {
+                    // Calculate averages from aggregated metrics
+                    const avgMetrics = {
+                      avg_confident: aggregatedFaceMetrics.frameCount > 0 
+                        ? (aggregatedFaceMetrics.totalConfident / aggregatedFaceMetrics.frameCount) * 100 
+                        : 50,
+                      avg_stressed: aggregatedFaceMetrics.frameCount > 0 
+                        ? (aggregatedFaceMetrics.totalStressed / aggregatedFaceMetrics.frameCount) * 100 
+                        : 20,
+                      avg_nervous: aggregatedFaceMetrics.frameCount > 0 
+                        ? (aggregatedFaceMetrics.totalNervous / aggregatedFaceMetrics.frameCount) * 100 
+                        : 15,
+                      blink_count: aggregatedFaceMetrics.blinkCount,
+                      looking_at_camera_percent: aggregatedFaceMetrics.frameCount > 0 
+                        ? (aggregatedFaceMetrics.lookingAtCameraCount / aggregatedFaceMetrics.frameCount) * 100 
+                        : 50,
+                    };
+
                     const fd = new FormData();
                     fd.append('audio', blob, 'answer.webm');
                     fd.append('question_id', String(currentQuestionIndex));
+                    fd.append('face_metrics', JSON.stringify(avgMetrics));
+
                     const resp = await fetch(`http://localhost:8000/interviews/${interviewId}/answer`, {
                       method: 'POST',
                       body: fd,
                     });
-                    await resp.json();
-                    setRecordingComplete(true);
+                    
+                    const result = await resp.json();
+                    
+                    if (result.success) {
+                      setRecordingComplete(true);
+                      
+                      // Reset aggregated metrics for next question
+                      setAggregatedFaceMetrics({
+                        frameCount: 0,
+                        totalConfident: 0,
+                        totalStressed: 0,
+                        totalNervous: 0,
+                        blinkCount: 0,
+                        lookingAtCameraCount: 0,
+                      });
+                    }
                   } catch (err) {
                     console.error('Submit answer failed:', err);
                     toast({ title: 'Submission Error', description: 'Please try again.', variant: 'destructive' });
