@@ -65,7 +65,8 @@ async def lifespan(app: FastAPI):
     # Startup
     try:
         supabase_manager = SupabaseManager()
-        await asyncio.to_thread(supabase_manager.connect)
+        # connect() is synchronous in our shared manager; do not await
+        supabase_manager.connect()
         logger.info("🚀 Course Service started successfully")
     except Exception as e:
         logger.warning(f"⚠️ Database not available, running in offline mode: {e}")
@@ -76,7 +77,8 @@ async def lifespan(app: FastAPI):
     # Shutdown
     try:
         if supabase_manager:
-            await asyncio.to_thread(supabase_manager.disconnect)
+            # disconnect() is synchronous; do not await
+            supabase_manager.disconnect()
         logger.info("🛑 Course Service shutdown complete")
     except Exception as e:
         logger.error(f"Error during shutdown: {e}")
