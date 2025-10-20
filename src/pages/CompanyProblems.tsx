@@ -20,17 +20,24 @@ const CompanyProblems = () => {
   const { companyId } = useParams();
   const { user } = useAuth();
   const { isFavorite, toggleFavorite, favorites } = useFavorites();
-  const { completedProblems, toggleProblemForFeedback } = useDSAProgress();
+  const { completedProblems, toggleProblemForFeedback, uncheckProblem } = useDSAProgress();
   const company = companies.find(c => c.id === companyId);
   
   const [expandedFeedback, setExpandedFeedback] = useState<string | null>(null);
   const [filters, setFilters] = useState({ difficulty: [] });
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-  const handleToggleProblem = useCallback((problemName: string) => {
-    const shouldShowFeedback = toggleProblemForFeedback(problemName);
-    if (shouldShowFeedback) setExpandedFeedback(problemName); else setExpandedFeedback(null);
-  }, [toggleProblemForFeedback]);
+  const handleToggleProblem = useCallback(async (problemName: string) => {
+    const result = toggleProblemForFeedback(problemName);
+    if (result.action === 'uncheck') {
+      await uncheckProblem(problemName);
+      setExpandedFeedback(null);
+    } else if (result.shouldShow) {
+      setExpandedFeedback(problemName);
+    } else {
+      setExpandedFeedback(null);
+    }
+  }, [toggleProblemForFeedback, uncheckProblem]);
 
   // Filter problems based on difficulty and favorites
   const filteredProblems = useMemo(() => {

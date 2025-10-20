@@ -68,17 +68,40 @@ export const useDSAProgress = () => {
   const toggleProblemForFeedback = useCallback((problemName: string) => {
     if (!user) {
       toast.error('Please sign in to track progress');
-      return false;
+      return { action: 'none', shouldShow: false } as const;
     }
 
     const isCurrentlyCompleted = completedProblems.has(problemName);
     if (isCurrentlyCompleted) {
-      toast.info('Already completed. Delete feedback in Feedbacks tab to unmark.');
-      return false;
+      // Allow unchecking/editing
+      return { action: 'uncheck', shouldShow: false } as const;
     }
     console.log('📝 Opening feedback form for:', problemName);
-    return true;
+    return { action: 'show', shouldShow: true } as const;
   }, [user, completedProblems]);
+
+  const uncheckProblem = useCallback(async (problemName: string) => {
+    if (!user) return;
+    try {
+      console.log('❌ Unchecking problem:', problemName);
+      const { error } = await supabase
+        .from('dsa_feedbacks')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('problem_name', problemName);
+      if (error) throw error;
+
+      setCompletedProblems(prev => {
+        const next = new Set(prev);
+        next.delete(problemName);
+        return next;
+      });
+      toast.success('Problem unmarked - you can give feedback again');
+    } catch (e) {
+      console.error('Failed to uncheck:', e);
+      toast.error('Failed to unmark problem');
+    }
+  }, [user]);
 
   // Mark as completed locally after feedback submit
   const markAsCompleted = useCallback((problemName: string) => {
@@ -168,6 +191,7 @@ export const useDSAProgress = () => {
     loading,
     toggleProblem,
     toggleProblemForFeedback,
+    uncheckProblem,
     markAsCompleted,
     isCompleted,
     refreshProgress: loadProgress
