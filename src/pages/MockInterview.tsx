@@ -848,16 +848,18 @@ const MockInterview = () => {
             </div>
 
             <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Camera Preview</CardTitle>
-                  <CardDescription>
+              <Card className="rounded-2xl border-2 border-white/10 bg-white/50 dark:bg-black/50 backdrop-blur-xl shadow-2xl">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                    📹 Camera Preview
+                  </CardTitle>
+                  <CardDescription className="text-muted-foreground">
                     Check your camera and microphone before starting
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {/* Preview only - no capture here for now */}
-                  <div className="rounded border p-2 text-sm text-muted-foreground">
+                  <div className="rounded-xl border-2 border-white/20 p-4 text-sm text-muted-foreground bg-white/20 dark:bg-black/20 backdrop-blur-sm">
                     Your camera preview will appear when you start the interview.
                   </div>
                 </CardContent>
@@ -890,43 +892,65 @@ const MockInterview = () => {
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-2">
+              <div className="mb-8">
+                {/* Progress Indicator */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                      Question Progress
+                    </h2>
+                    <div className="px-4 py-2 bg-gradient-to-r from-primary/20 to-accent/20 rounded-xl border border-primary/30">
+                      <span className="text-sm font-semibold text-primary">
+                        {currentQuestionIndex + 1} / {questions.length}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-secondary/30 rounded-full h-3 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-500 ease-out"
+                      style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                <h2 className="text-xl font-semibold mb-4">
                   Question {currentQuestionIndex + 1}:
                 </h2>
-                <div className="p-4 bg-muted rounded-md text-lg mb-4">
+                <div className="p-6 bg-gradient-to-br from-white/50 to-white/20 dark:from-black/50 dark:to-black/20 rounded-2xl border-2 border-white/10 backdrop-blur-xl shadow-2xl text-lg font-medium">
                   {questions[currentQuestionIndex]}
                 </div>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground mt-4 text-center">
                   When you're ready, click "Start Recording" and begin your
                   answer. We'll analyze both your verbal response and facial
                   expressions.
                 </p>
               </div>
 
-              <Card className="mt-8">
-                <CardHeader>
-                  <CardTitle>Answering Tips</CardTitle>
+              <Card className="mt-8 rounded-2xl border-2 border-white/10 bg-white/50 dark:bg-black/50 backdrop-blur-xl shadow-2xl">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                    💡 Answering Tips
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ul className="space-y-2">
-                    <li className="flex items-start gap-2">
-                      <div className="rounded-full bg-primary/10 p-1 mt-0.5">
-                        <span className="block h-1.5 w-1.5 rounded-full bg-primary"></span>
+                  <ul className="space-y-3">
+                    <li className="flex items-start gap-3 p-3 bg-white/20 dark:bg-black/20 rounded-xl border border-white/10">
+                      <div className="rounded-full bg-primary/20 p-1.5 mt-0.5">
+                        <span className="block h-2 w-2 rounded-full bg-primary"></span>
                       </div>
-                      <span>Use specific examples from your experience</span>
+                      <span className="font-medium">Use specific examples from your experience</span>
                     </li>
-                    <li className="flex items-start gap-2">
-                      <div className="rounded-full bg-primary/10 p-1 mt-0.5">
-                        <span className="block h-1.5 w-1.5 rounded-full bg-primary"></span>
+                    <li className="flex items-start gap-3 p-3 bg-white/20 dark:bg-black/20 rounded-xl border border-white/10">
+                      <div className="rounded-full bg-primary/20 p-1.5 mt-0.5">
+                        <span className="block h-2 w-2 rounded-full bg-primary"></span>
                       </div>
-                      <span>Avoid filler words like "um" and "uh"</span>
+                      <span className="font-medium">Avoid filler words like "um" and "uh"</span>
                     </li>
-                    <li className="flex items-start gap-2">
-                      <div className="rounded-full bg-primary/10 p-1 mt-0.5">
-                        <span className="block h-1.5 w-1.5 rounded-full bg-primary"></span>
+                    <li className="flex items-start gap-3 p-3 bg-white/20 dark:bg-black/20 rounded-xl border border-white/10">
+                      <div className="rounded-full bg-primary/20 p-1.5 mt-0.5">
+                        <span className="block h-2 w-2 rounded-full bg-primary"></span>
                       </div>
-                      <span>Speak confidently and maintain good posture</span>
+                      <span className="font-medium">Speak confidently and maintain good posture</span>
                     </li>
                   </ul>
                 </CardContent>
@@ -1031,17 +1055,21 @@ const MockInterview = () => {
                 isVisible={isRecording}
               />
 
-              <div className="mt-6 flex justify-center space-x-4">
+              <div className="mt-8 flex justify-center space-x-4">
                 {recordingComplete ? (
                   <Button
                     onClick={handleNextQuestion}
-                    className="px-6 py-3 bg-primary text-white rounded-lg flex items-center space-x-2"
+                    className="px-8 py-4 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 border-2 border-primary/20 font-semibold"
                   >
                     <span>Next Question</span>
-                    <ChevronRight size={16} />
+                    <ChevronRight size={18} />
                   </Button>
                 ) : (
-                  <Button variant="outline" onClick={handleCancel}>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleCancel}
+                    className="px-8 py-4 rounded-xl border-2 border-white/20 hover:bg-white/10 hover:scale-105 transition-all duration-300 font-semibold"
+                  >
                     Cancel
                   </Button>
                 )}

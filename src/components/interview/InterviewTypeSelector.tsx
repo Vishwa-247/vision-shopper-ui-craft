@@ -68,19 +68,19 @@ const InterviewTypeSelector = ({ onSelectType, selectedType }: InterviewTypeSele
         {interviewTypes.map((type) => (
           <Card 
             key={type.id} 
-            className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
+            className={`cursor-pointer transition-all duration-300 hover:shadow-2xl hover:scale-105 rounded-2xl border-2 ${
               selectedType === type.id 
-                ? "ring-2 ring-primary border-primary bg-primary/5" 
-                : "hover:border-primary/50"
+                ? "ring-4 ring-primary/30 border-primary bg-gradient-to-br from-primary/10 to-primary/5 shadow-2xl scale-105" 
+                : "border-white/10 bg-white/50 dark:bg-black/50 backdrop-blur-xl hover:border-primary/50 hover:bg-white/60 dark:hover:bg-black/60"
             }`}
             onClick={() => onSelectType(type.id)}
           >
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 text-primary shadow-lg">
                   {type.icon}
                 </div>
-                <CardTitle className="text-lg">{type.name}</CardTitle>
+                <CardTitle className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">{type.name}</CardTitle>
               </div>
               <CardDescription className="text-sm leading-relaxed">
                 {type.description}
@@ -100,18 +100,18 @@ const InterviewTypeSelector = ({ onSelectType, selectedType }: InterviewTypeSele
                   </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <Badge variant="outline" className="text-xs">
+                <div className="space-y-3">
+                  <Badge variant="outline" className="text-xs px-3 py-1 rounded-full border-2 border-primary/30 bg-primary/10 text-primary font-semibold">
                     {type.difficulty}
                   </Badge>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-2">
                     {type.topics.slice(0, 3).map((topic, index) => (
-                      <Badge key={index} variant="secondary" className="text-xs">
+                      <Badge key={index} variant="secondary" className="text-xs px-3 py-1 rounded-full bg-gradient-to-r from-secondary to-secondary/80 text-foreground font-medium">
                         {topic}
                       </Badge>
                     ))}
                     {type.topics.length > 3 && (
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="secondary" className="text-xs px-3 py-1 rounded-full bg-gradient-to-r from-secondary to-secondary/80 text-foreground font-medium">
                         +{type.topics.length - 3} more
                       </Badge>
                     )}
@@ -124,10 +124,10 @@ const InterviewTypeSelector = ({ onSelectType, selectedType }: InterviewTypeSele
       </div>
 
       {selectedType && (
-        <div className="mt-6 text-center">
+        <div className="mt-8 text-center">
           <Button 
             onClick={() => onSelectType(selectedType)}
-            className="px-8 py-2"
+            className="px-10 py-4 rounded-xl shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 bg-gradient-to-r from-primary to-accent text-white font-semibold border-2 border-primary/20"
           >
             Continue with {interviewTypes.find(t => t.id === selectedType)?.name}
           </Button>
