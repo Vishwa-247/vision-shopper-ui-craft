@@ -53,6 +53,9 @@ timeout /t 2 /nobreak >nul
 start "DSA Service - Port 8004" cmd /k "cd /d %~dp0 && venv\Scripts\activate && cd agents\dsa-service && python main.py"
 timeout /t 2 /nobreak >nul
 
+start "DSA Feedback Service - Port 8009" cmd /k "cd /d %~dp0 && venv\Scripts\activate && cd agents\dsa-feedback-service && python main.py"
+timeout /t 2 /nobreak >nul
+
 start "Emotion Detection - Port 5000" cmd /k "cd /d %~dp0 && venv\Scripts\activate && cd agents\emotion-detection && python main.py"
 timeout /t 2 /nobreak >nul
 
@@ -67,6 +70,7 @@ echo    - Course Service:      http://localhost:8001
 echo    - Course Generation:   http://localhost:8008
 echo    - Interview Coach:     http://localhost:8002
 echo    - DSA Service:         http://localhost:8004
+echo    - DSA Feedback Service: http://localhost:8009
 echo    - Emotion Detection:   http://localhost:5000
 echo.
 echo 📖 API Documentation: http://localhost:8000/docs
