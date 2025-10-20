@@ -502,16 +502,12 @@
 
 
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import InterviewTypeSelector from "@/components/interview/InterviewTypeSelector";
+import MetricsPanel from "@/components/interview/MetricsPanel";
 import TechnicalInterviewSetup from "@/components/interview/TechnicalInterviewSetup";
 import UnifiedInterviewSetup from "@/components/interview/UnifiedInterviewSetup";
 import VideoRecorder from "@/components/interview/VideoRecorder";
-import MetricsPanel from "@/components/interview/MetricsPanel";
-import Container from "@/components/ui/Container";
-import { ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -519,7 +515,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import Container from "@/components/ui/Container";
 import { useToast } from "@/hooks/use-toast";
+import { ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const staticQuestions = {
   "Software Engineer": [
@@ -1016,4 +1016,3 @@ const MockInterview = () => {
 };
 
 export default MockInterview;
-

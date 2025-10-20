@@ -357,12 +357,25 @@ def calculate_profile_completion(profile_data: Dict) -> int:
     total_fields = 0
     filled_fields = 0
 
+    # Helper to get field value (handles both snake_case and camelCase)
+    def get_field(snake_name: str, camel_name: str = None):
+        return profile_data.get(snake_name) or profile_data.get(camel_name or snake_name)
+
     # Personal info fields (8 fields, 40% weight)
-    personal_fields = ['full_name', 'email', 'phone', 'location', 
-                      'linkedin_url', 'github_url', 'portfolio_url', 'professional_summary']
-    for field in personal_fields:
+    personal_checks = [
+        ('full_name', 'fullName'),
+        ('email', 'email'),
+        ('phone', 'phone'),
+        ('location', 'location'),
+        ('linkedin_url', 'linkedin'),
+        ('github_url', 'github'),
+        ('portfolio_url', 'portfolio'),
+        ('professional_summary', 'summary')
+    ]
+
+    for snake, camel in personal_checks:
         total_fields += 1
-        if profile_data.get(field):
+        if get_field(snake, camel):
             filled_fields += 1
 
     # Section completion (60% weight total)
@@ -376,7 +389,7 @@ def calculate_profile_completion(profile_data: Dict) -> int:
 
     for section_name, section_data in sections:
         total_fields += 1
-        if len(section_data) > 0:
+        if isinstance(section_data, list) and len(section_data) > 0:
             filled_fields += 1
 
     percentage = int((filled_fields / total_fields) * 100) if total_fields > 0 else 0
@@ -646,12 +659,11 @@ async def apply_extracted_data(user_id: str, extracted_data: Dict[str, Any]):
         
         # Mark extraction as applied
         try:
-            supabase_manager.supabase.table('resume_extractions')\
+            result = supabase_manager.supabase.table('resume_extractions')\
                 .update({"applied_at": datetime.now().isoformat(), "applied_by": user_id})\
                 .eq('user_id', user_id)\
-                .order('created_at', desc=True)\
-                .limit(1)\
                 .execute()
+            logger.info(f"✅ Marked {len(result.data)} extraction(s) as applied")
         except Exception as db_error:
             logger.warning(f"⚠️ Failed to mark extraction as applied: {db_error}")
         

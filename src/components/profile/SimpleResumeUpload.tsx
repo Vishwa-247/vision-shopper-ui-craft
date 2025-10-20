@@ -707,44 +707,6 @@ const SimpleResumeUpload = () => {
 
   return (
     <div className="space-y-6">
-      {/* Debug Authentication State */}
-      {process.env.NODE_ENV === 'development' && (
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardContent className="p-4">
-            <h4 className="font-semibold text-yellow-800 mb-2">🔧 Debug Info (Development Only)</h4>
-            <div className="text-sm text-yellow-700 space-y-1">
-              <p><strong>Auth Loading:</strong> {authLoading ? 'Yes' : 'No'}</p>
-              <p><strong>User:</strong> {user ? 'Present' : 'Missing'}</p>
-              <p><strong>User ID:</strong> {user?.id || 'None'}</p>
-              <p><strong>Profile:</strong> {profile ? 'Loaded' : 'Not loaded'}</p>
-              <p><strong>Profile Loading:</strong> {profileLoading ? 'Yes' : 'No'}</p>
-            </div>
-            <div className="mt-3 space-x-2">
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => {
-                  console.log('🔍 Manual auth check:', { user, authLoading, profile });
-                  toast({
-                    title: "Debug Info",
-                    description: `User: ${user ? 'Present' : 'Missing'}, ID: ${user?.id || 'None'}`,
-                  });
-                }}
-              >
-                Check Auth
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => window.location.reload()}
-              >
-                Refresh Page
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* AI Processing State */}
       {isProcessing && (
         <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-background">
@@ -756,13 +718,15 @@ const SimpleResumeUpload = () => {
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-ping"></div>
                 </div>
                 <div className="text-center">
-                  <h3 className="text-lg font-semibold text-primary">AI Agent Processing</h3>
+                  <h3 className="text-lg font-semibold text-primary">
+                    AI Agent Processing
+                  </h3>
                   <p className="text-sm text-muted-foreground">{aiStage}</p>
                 </div>
               </div>
-              
+
               <Progress value={uploadProgress} className="h-3" />
-              
+
               <div className="text-center">
                 <p className="text-xs text-muted-foreground">
                   AI is analyzing your professional background...
@@ -780,8 +744,8 @@ const SimpleResumeUpload = () => {
             <div
               {...getRootProps()}
               className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200 ${
-                isDragActive 
-                  ? "border-primary bg-primary/10 scale-[1.02]" 
+                isDragActive
+                  ? "border-primary bg-primary/10 scale-[1.02]"
                   : "border-muted-foreground/25 hover:border-primary/50 hover:bg-primary/5"
               }`}
             >
@@ -792,23 +756,33 @@ const SimpleResumeUpload = () => {
                     <Upload className="h-8 w-8 text-primary" />
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="text-lg font-semibold mb-2">
-                    {isDragActive ? "Drop your resume here" : "Upload Resume for AI Analysis"}
+                    {isDragActive
+                      ? "Drop your resume here"
+                      : "Upload Resume for AI Analysis"}
                   </h3>
                   <p className="text-muted-foreground mb-4">
                     AI will automatically extract and fill your profile
                   </p>
                 </div>
-                
+
                 <div className="flex flex-wrap justify-center gap-2 mb-4">
-                  <Badge variant="outline" className="text-xs">PDF</Badge>
-                  <Badge variant="outline" className="text-xs">DOC</Badge>
-                  <Badge variant="outline" className="text-xs">DOCX</Badge>
-                  <Badge variant="outline" className="text-xs">Up to 10MB</Badge>
+                  <Badge variant="outline" className="text-xs">
+                    PDF
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    DOC
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    DOCX
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    Up to 10MB
+                  </Badge>
                 </div>
-                
+
                 <Button size="lg" className="px-8">
                   <Upload className="h-4 w-4 mr-2" />
                   Choose Resume
@@ -854,13 +828,16 @@ const SimpleResumeUpload = () => {
       {currentResume && !isProcessing && (
         <div className="space-y-4">
           <ResumeFilePreview
-            filePath={currentResume.storagePath || `user-uploads/${currentResume.filename}`}
+            filePath={
+              currentResume.storagePath ||
+              `user-uploads/${currentResume.filename}`
+            }
             fileName={currentResume.filename}
             fileSize={currentResume.fileSize || 0}
             uploadDate={currentResume.uploadDate}
             onDelete={handleDelete}
           />
-          
+
           {/* Upload New Resume */}
           <Card>
             <CardContent className="pt-6">

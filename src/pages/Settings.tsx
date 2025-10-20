@@ -1,27 +1,16 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import Container from "@/components/ui/Container";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  Settings as SettingsIcon, 
-  Key, 
-  User, 
-  Shield, 
-  Palette,
-  Save,
-  Eye,
-  EyeOff,
-  CheckCircle,
-  AlertCircle
-} from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -29,6 +18,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  AlertCircle,
+  CheckCircle,
+  Eye,
+  EyeOff,
+  Key,
+  Palette,
+  Save,
+  Settings as SettingsIcon,
+  Shield,
+  User,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface UserSettings {
   id?: string;
@@ -61,14 +66,14 @@ const Settings = () => {
 
     try {
       setIsLoading(true);
-      
+
       const { data, error } = await supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', user.id)
+        .from("user_settings")
+        .select("*")
+        .eq("user_id", user.id)
         .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error && error.code !== "PGRST116") {
         throw error;
       }
 
@@ -79,13 +84,13 @@ const Settings = () => {
         // Create default settings
         const defaultSettings: UserSettings = {
           user_id: user.id,
-          preferred_difficulty: 'intermediate',
-          preferred_language: 'en',
-          theme_preference: 'system'
+          preferred_difficulty: "intermediate",
+          preferred_language: "en",
+          theme_preference: "system",
         };
-        
+
         const { data: newSettings, error: createError } = await supabase
-          .from('user_settings')
+          .from("user_settings")
           .insert(defaultSettings)
           .select()
           .single();
@@ -97,7 +102,7 @@ const Settings = () => {
         setSettings(newSettings);
       }
     } catch (error) {
-      console.error('Error fetching user settings:', error);
+      console.error("Error fetching user settings:", error);
       toast({
         title: "Error",
         description: "Failed to load settings. Please try again.",
@@ -113,24 +118,24 @@ const Settings = () => {
 
     try {
       setIsSaving(true);
-      
+
       const { error } = await supabase
-        .from('user_settings')
+        .from("user_settings")
         .update(updates)
-        .eq('user_id', user.id);
+        .eq("user_id", user.id);
 
       if (error) {
         throw error;
       }
 
-      setSettings(prev => prev ? { ...prev, ...updates } : null);
-      
+      setSettings((prev) => (prev ? { ...prev, ...updates } : null));
+
       toast({
         title: "Settings Updated",
         description: "Your settings have been saved successfully.",
       });
     } catch (error) {
-      console.error('Error updating settings:', error);
+      console.error("Error updating settings:", error);
       toast({
         title: "Error",
         description: "Failed to update settings. Please try again.",
@@ -155,7 +160,11 @@ const Settings = () => {
   };
 
   const handleRemoveApiKey = async () => {
-    if (!confirm("Are you sure you want to remove your Gemini API key? This will disable AI-powered course generation.")) {
+    if (
+      !confirm(
+        "Are you sure you want to remove your Gemini API key? This will disable AI-powered course generation."
+      )
+    ) {
       return;
     }
 
@@ -230,18 +239,18 @@ const Settings = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="email">Email</Label>
-                <Input 
-                  id="email" 
-                  value={user.email || ""} 
+                <Input
+                  id="email"
+                  value={user.email || ""}
                   disabled
                   className="bg-muted"
                 />
               </div>
               <div>
                 <Label htmlFor="full-name">Full Name</Label>
-                <Input 
-                  id="full-name" 
-                  value={user.user_metadata?.full_name || ""} 
+                <Input
+                  id="full-name"
+                  value={user.user_metadata?.full_name || ""}
                   disabled
                   className="bg-muted"
                   placeholder="Not provided"
@@ -249,7 +258,8 @@ const Settings = () => {
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              Profile information is managed through your authentication provider.
+              Profile information is managed through your authentication
+              provider.
             </p>
           </CardContent>
         </Card>
@@ -270,7 +280,10 @@ const Settings = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label htmlFor="gemini-api-key" className="text-base font-medium">
+                  <Label
+                    htmlFor="gemini-api-key"
+                    className="text-base font-medium"
+                  >
                     Gemini API Key
                   </Label>
                   <p className="text-sm text-muted-foreground">
@@ -278,13 +291,16 @@ const Settings = () => {
                   </p>
                 </div>
                 {settings?.gemini_api_key && (
-                  <Badge variant="secondary" className="bg-green-100 text-green-800">
+                  <Badge
+                    variant="secondary"
+                    className="bg-green-100 text-green-800"
+                  >
                     <CheckCircle className="w-3 h-3 mr-1" />
                     Configured
                   </Badge>
                 )}
               </div>
-              
+
               <div className="flex space-x-2">
                 <div className="relative flex-1">
                   <Input
@@ -300,10 +316,14 @@ const Settings = () => {
                     onClick={() => setShowApiKey(!showApiKey)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
-                    {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showApiKey ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
-                <Button 
+                <Button
                   onClick={handleSaveApiKey}
                   disabled={isSaving || !tempApiKey.trim()}
                 >
@@ -317,8 +337,8 @@ const Settings = () => {
                   <span className="text-sm text-muted-foreground">
                     API key is configured and ready to use
                   </span>
-                  <Button 
-                    variant="destructive" 
+                  <Button
+                    variant="destructive"
                     size="sm"
                     onClick={handleRemoveApiKey}
                   >
@@ -330,10 +350,11 @@ const Settings = () => {
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Your API key is stored securely and encrypted. Get your Gemini API key from{" "}
-                  <a 
-                    href="https://aistudio.google.com/app/apikey" 
-                    target="_blank" 
+                  Your API key is stored securely and encrypted. Get your Gemini
+                  API key from{" "}
+                  <a
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline"
                   >
@@ -361,8 +382,10 @@ const Settings = () => {
               <div className="space-y-2">
                 <Label htmlFor="difficulty">Preferred Difficulty</Label>
                 <Select
-                  value={settings?.preferred_difficulty || 'intermediate'}
-                  onValueChange={(value) => updateSettings({ preferred_difficulty: value })}
+                  value={settings?.preferred_difficulty || "intermediate"}
+                  onValueChange={(value) =>
+                    updateSettings({ preferred_difficulty: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select difficulty" />
@@ -379,8 +402,10 @@ const Settings = () => {
               <div className="space-y-2">
                 <Label htmlFor="language">Preferred Language</Label>
                 <Select
-                  value={settings?.preferred_language || 'en'}
-                  onValueChange={(value) => updateSettings({ preferred_language: value })}
+                  value={settings?.preferred_language || "en"}
+                  onValueChange={(value) =>
+                    updateSettings({ preferred_language: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select language" />
@@ -400,8 +425,10 @@ const Settings = () => {
             <div className="space-y-2">
               <Label htmlFor="theme">Theme Preference</Label>
               <Select
-                value={settings?.theme_preference || 'system'}
-                onValueChange={(value) => updateSettings({ theme_preference: value })}
+                value={settings?.theme_preference || "system"}
+                onValueChange={(value) =>
+                  updateSettings({ theme_preference: value })
+                }
               >
                 <SelectTrigger className="w-full md:w-[200px]">
                   <SelectValue placeholder="Select theme" />
@@ -437,12 +464,14 @@ const Settings = () => {
               </div>
               <Badge variant="outline">Active</Badge>
             </div>
-            
+
             <div className="flex justify-between items-center p-4 border rounded-lg">
               <div>
                 <p className="font-medium">Last Sign In</p>
                 <p className="text-sm text-muted-foreground">
-                  {user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'Never'}
+                  {user.last_sign_in_at
+                    ? new Date(user.last_sign_in_at).toLocaleDateString()
+                    : "Never"}
                 </p>
               </div>
             </div>
@@ -450,7 +479,8 @@ const Settings = () => {
             <Alert>
               <Shield className="h-4 w-4" />
               <AlertDescription>
-                Your data is encrypted and stored securely. We never share your personal information with third parties.
+                Your data is encrypted and stored securely. We never share your
+                personal information with third parties.
               </AlertDescription>
             </Alert>
           </CardContent>

@@ -1,11 +1,21 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  User, Mail, Phone, MapPin, Github, Linkedin, Globe, 
-  GraduationCap, Briefcase, Code, Award, FileText, ExternalLink 
-} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useProfile } from "@/hooks/useProfile";
+import {
+  Award,
+  Briefcase, Code,
+  ExternalLink,
+  FileText,
+  Github,
+  Globe,
+  GraduationCap,
+  Linkedin,
+  Mail,
+  MapPin,
+  Phone,
+  User
+} from "lucide-react";
 
 export default function ProfilePreview() {
   const { profile } = useProfile();
