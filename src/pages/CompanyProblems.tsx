@@ -12,6 +12,7 @@ import InlineFeedback from "@/components/course/InlineFeedback";
 import RouteFilters from "@/components/dsa/RouteFilters";
 import { useAuth } from '@/hooks/useAuth';
 import { useFavorites } from '@/hooks/useFavorites';
+import { useDSAProgress } from '@/hooks/useDSAProgress';
 import { dsaService } from "@/api/services/dsaService";
 import { toast } from "sonner";
 
@@ -19,31 +20,21 @@ const CompanyProblems = () => {
   const { companyId } = useParams();
   const { user } = useAuth();
   const { isFavorite, toggleFavorite, favorites } = useFavorites();
+  const { completedProblems, toggleProblem, isCompleted } = useDSAProgress();
   const company = companies.find(c => c.id === companyId);
   
-  const [completedProblems, setCompletedProblems] = useState(new Set<string>());
   const [expandedFeedback, setExpandedFeedback] = useState<string | null>(null);
   const [filters, setFilters] = useState({ difficulty: [] });
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-  const toggleProblem = useCallback((problemName: string) => {
-    const isCurrentlyCompleted = completedProblems.has(problemName);
-
-    setCompletedProblems(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(problemName)) {
-        newSet.delete(problemName);
-      } else {
-        newSet.add(problemName);
-      }
-      return newSet;
-    });
-
-    // Show feedback form when marking as completed (not when unchecking)
-    if (!isCurrentlyCompleted) {
+  const handleToggleProblem = useCallback(async (problemName: string) => {
+    const shouldShowFeedback = await toggleProblem(problemName, undefined, undefined, companyId);
+    if (shouldShowFeedback) {
       setExpandedFeedback(problemName);
+    } else {
+      setExpandedFeedback(null);
     }
-  }, [completedProblems]);
+  }, [toggleProblem, companyId]);
 
   // Filter problems based on difficulty and favorites
   const filteredProblems = useMemo(() => {
@@ -177,7 +168,7 @@ const CompanyProblems = () => {
                           <div className="flex items-center gap-3 min-w-0 flex-1">
                             <Checkbox
                               checked={isCompleted}
-                              onCheckedChange={() => toggleProblem(problem.name)}
+                              onCheckedChange={() => handleToggleProblem(problem.name)}
                               className="flex-shrink-0"
                             />
                             
@@ -220,7 +211,7 @@ const CompanyProblems = () => {
                               variant="ghost"
                               size="sm"
                               asChild
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="transition-opacity"
                             >
                               <a 
                                 href={problem.url} 

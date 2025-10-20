@@ -11,6 +11,7 @@ import InlineFeedback from "@/components/course/InlineFeedback";
 import RouteFilters from "@/components/dsa/RouteFilters";
 import { useAuth } from '@/hooks/useAuth';
 import { useFavorites } from '@/hooks/useFavorites';
+import { useDSAProgress } from '@/hooks/useDSAProgress';
 import { dsaService } from "@/api/services/dsaService";
 import { toast } from "sonner";
 
@@ -18,8 +19,8 @@ const DSATopic = () => {
   const { topicId } = useParams();
   const { user } = useAuth();
   const { isFavorite, toggleFavorite, favorites } = useFavorites();
+  const { completedProblems, toggleProblem, isCompleted } = useDSAProgress();
   const topic = dsaTopics.find(t => t.id === topicId);
-  const [completedProblems, setCompletedProblems] = useState<Set<string>>(new Set());
   const [expandedFeedback, setExpandedFeedback] = useState<string | null>(null);
   const [filters, setFilters] = useState({ difficulty: [] });
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -37,24 +38,14 @@ const DSATopic = () => {
     );
   }
 
-  const toggleProblem = useCallback((problemName: string) => {
-    const isCurrentlyCompleted = completedProblems.has(problemName);
-
-    setCompletedProblems(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(problemName)) {
-        newSet.delete(problemName);
-      } else {
-        newSet.add(problemName);
-      }
-      return newSet;
-    });
-
-    // Show feedback form when marking as completed (not when unchecking)
-    if (!isCurrentlyCompleted) {
+  const handleToggleProblem = useCallback(async (problemName: string) => {
+    const shouldShowFeedback = await toggleProblem(problemName, undefined, topicId);
+    if (shouldShowFeedback) {
       setExpandedFeedback(problemName);
+    } else {
+      setExpandedFeedback(null);
     }
-  }, [completedProblems]);
+  }, [toggleProblem, topicId]);
 
   // Filter problems based on difficulty and favorites
   const filteredProblems = useMemo(() => {
@@ -150,7 +141,7 @@ const DSATopic = () => {
                       <CardContent className="p-4">
                         <div className="flex items-center gap-4">
                           <button
-                            onClick={() => toggleProblem(problem.name)}
+                            onClick={() => handleToggleProblem(problem.name)}
                             className="transition-colors hover:scale-110"
                           >
                             {isCompleted ? (
@@ -163,10 +154,7 @@ const DSATopic = () => {
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <h3 className={`text-lg font-medium transition-colors ${
-                                isCompleted ? 'text-muted-foreground line-through' : 
-                                problem.difficulty === 'Easy' ? 'text-green-600' :
-                                problem.difficulty === 'Medium' ? 'text-orange-600' :
-                                problem.difficulty === 'Hard' ? 'text-red-600' : 'text-foreground'
+                                isCompleted ? 'text-muted-foreground line-through' : 'text-foreground'
                               }`}>
                                 {problem.name}
                               </h3>
@@ -201,7 +189,7 @@ const DSATopic = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="transition-opacity"
                               asChild
                             >
                               <a

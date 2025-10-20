@@ -131,11 +131,7 @@ const DSASheet = () => {
                             </div>
                           </div>
                             
-                            <h3 className={`text-xl font-semibold mb-3 group-hover:text-primary transition-colors ${
-                              topic.difficulty === 'Easy' ? 'text-green-600' :
-                              topic.difficulty === 'Medium' ? 'text-orange-600' :
-                              topic.difficulty === 'Hard' ? 'text-red-600' : 'text-foreground'
-                            }`}>
+                            <h3 className="text-xl font-semibold mb-3 group-hover:text-primary transition-colors text-foreground">
                               {topic.title}
                             </h3>
                             
