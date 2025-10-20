@@ -345,7 +345,7 @@ const Dashboard = () => {
                 <CardContent>
                   <div className="flex items-center">
                     <Code className="mr-2 h-4 w-4 text-primary" />
-                    <div className="text-2xl font-bold">{totalSolvedDSAProblems}/{totalAllDSAProblems}</div>
+                    <div className="text-2xl font-bold">{realDSAData.solvedProblems}/{totalAllDSAProblems}</div>
                   </div>
                 </CardContent>
               </Card>
@@ -622,10 +622,10 @@ const Dashboard = () => {
                       <span className="font-medium">Overall Progress</span>
                       <span className="text-sm text-muted-foreground">{dsaProgressPercentage}%</span>
                     </div>
-                    <Progress value={dsaProgressPercentage} />
+                    <Progress value={realDSAData.progressPercentage} />
                     <div className="grid grid-cols-2 gap-4 pt-4">
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-primary">{totalSolvedDSAProblems}</div>
+                        <div className="text-2xl font-bold text-primary">{realDSAData.solvedProblems}</div>
                         <div className="text-sm text-muted-foreground">Problems Solved</div>
                       </div>
                       <div className="text-center">
