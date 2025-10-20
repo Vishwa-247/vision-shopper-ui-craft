@@ -8,19 +8,12 @@ export const useDSAProgress = () => {
   const [completedProblems, setCompletedProblems] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
-  // Load progress from database
-  useEffect(() => {
-    if (user) {
-      loadProgress();
-      const cleanup = setupRealtimeSubscription();
-      return cleanup;
-    }
-  }, [user, loadProgress, setupRealtimeSubscription]);
-
+  // Define functions BEFORE useEffect to avoid temporal dead zone
   const loadProgress = useCallback(async () => {
     if (!user) return;
 
     try {
+      console.log('📚 Loading DSA progress from database...');
       // Use dsa_feedbacks table to determine completed problems
       const { data, error } = await supabase
         .from('dsa_feedbacks')
@@ -30,9 +23,10 @@ export const useDSAProgress = () => {
       if (error) throw error;
 
       const completed = new Set(data?.map(f => f.problem_name) || []);
+      console.log(`✅ Loaded ${completed.size} completed problems`);
       setCompletedProblems(completed);
     } catch (error) {
-      console.error('Failed to load progress:', error);
+      console.error('❌ Failed to load progress:', error);
     } finally {
       setLoading(false);
     }
@@ -41,6 +35,7 @@ export const useDSAProgress = () => {
   const setupRealtimeSubscription = useCallback(() => {
     if (!user) return;
 
+    console.log('🔔 Setting up realtime subscription for DSA progress...');
     const channel = supabase
       .channel('dsa-feedback-changes')
       .on('postgres_changes', {
@@ -49,15 +44,25 @@ export const useDSAProgress = () => {
         table: 'dsa_feedbacks',
         filter: `user_id=eq.${user.id}`
       }, (payload) => {
-        console.log('Feedback updated:', payload);
+        console.log('🔄 Feedback updated:', payload);
         loadProgress(); // Refresh progress
       })
       .subscribe();
 
     return () => {
+      console.log('🔕 Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
   }, [user, loadProgress]);
+
+  // Now use them in useEffect (after they're defined)
+  useEffect(() => {
+    if (user) {
+      loadProgress();
+      const cleanup = setupRealtimeSubscription();
+      return cleanup;
+    }
+  }, [user, loadProgress, setupRealtimeSubscription]);
 
   const toggleProblem = useCallback(async (
     problemName: string,
@@ -74,6 +79,7 @@ export const useDSAProgress = () => {
 
     try {
       if (isCurrentlyCompleted) {
+        console.log('❌ Unmarking problem as completed:', problemName);
         // Unmark as completed - delete feedback for this problem
         const { error } = await supabase
           .from('dsa_feedbacks')
@@ -91,11 +97,13 @@ export const useDSAProgress = () => {
 
         toast.success('Progress updated');
       } else {
+        console.log('✅ Marking problem as completed:', problemName);
         // Mark as completed - create a basic feedback entry
         const { error } = await supabase
           .from('dsa_feedbacks')
           .insert({
             user_id: user.id,
+            problem_id: problemId || problemName.toLowerCase().replace(/\s+/g, '-'),
             problem_name: problemName,
             difficulty: 'Medium', // Default difficulty
             category: topicId || 'General',
@@ -119,7 +127,7 @@ export const useDSAProgress = () => {
         return true; // Return true to trigger feedback form
       }
     } catch (error) {
-      console.error('Failed to update progress:', error);
+      console.error('❌ Failed to update progress:', error);
       toast.error('Failed to update progress');
     }
 
