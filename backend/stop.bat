@@ -15,8 +15,7 @@ taskkill /F /FI "WINDOWTITLE eq Resume Analyzer*" 2>nul
 taskkill /F /FI "WINDOWTITLE eq Course Service*" 2>nul
 taskkill /F /FI "WINDOWTITLE eq Course Generation*" 2>nul
 taskkill /F /FI "WINDOWTITLE eq Interview Coach*" 2>nul
-taskkill /F /FI "WINDOWTITLE eq DSA Service*" 2>nul
-taskkill /F /FI "WINDOWTITLE eq DSA Feedback Service*" 2>nul
+taskkill /F /FI "WINDOWTITLE eq Unified DSA Service*" 2>nul
 taskkill /F /FI "WINDOWTITLE eq Emotion Detection*" 2>nul
 
 echo.
@@ -30,7 +29,6 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8003') do taskkill /F /PID %
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8004') do taskkill /F /PID %%a 2>nul
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8006') do taskkill /F /PID %%a 2>nul
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8008') do taskkill /F /PID %%a 2>nul
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8009') do taskkill /F /PID %%a 2>nul
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr :5000') do taskkill /F /PID %%a 2>nul
 
 echo.

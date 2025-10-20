@@ -128,7 +128,7 @@ export const FeedbackSystem: React.FC<FeedbackSystemProps> = ({
       if (dbError) throw dbError;
 
       // Generate AI suggestions using backend service
-      fetch("http://localhost:8009/generate-suggestions", {
+      fetch("http://localhost:8004/feedback/generate-suggestions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

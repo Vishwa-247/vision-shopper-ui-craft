@@ -28,15 +28,16 @@ print(f"✅ Working Directory: {os.getcwd()}")
 try:
     import uvicorn
     
-    print("🌐 Starting DSA Service on http://localhost:8002")
-    print("📖 API Documentation: http://localhost:8002/docs")
-    print("❤️  Health Check: http://localhost:8002/health")
+    print("🌐 Starting Unified DSA Service on http://localhost:8004")
+    print("📖 API Documentation: http://localhost:8004/docs")
+    print("❤️  Health Check: http://localhost:8004/health")
+    print("🤖 Features: Progress Tracking + AI Feedback + Contextual Chatbot")
     print("\nPress Ctrl+C to stop the server")
     
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8002,
+        port=8004,
         reload=True,
         reload_dirs=[dsa_service_dir]
     )

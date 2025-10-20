@@ -122,7 +122,7 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
       const { data: { user } } = await supabase.auth.getUser();
       
       // Try enhanced AI search with feedback context
-      const response = await fetch('http://localhost:8009/chatbot-response', {
+      const response = await fetch('http://localhost:8004/feedback/chatbot-response', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
