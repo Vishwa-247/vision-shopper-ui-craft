@@ -248,10 +248,12 @@ async def extract_profile_with_groq(resume_text: str) -> dict:
             ]
         }}
         
-        IMPORTANT SKILL CATEGORY RULES:
-        - Use 'Technical' for programming languages, technologies, ML/AI tools, data science
+        CRITICAL SKILL CATEGORY RULES:
+        - NEVER use 'Database', 'Backend', 'Frontend', 'DevOps', or custom categories
+        - ONLY use these 5 categories: Technical, Soft, Language, Framework, Tool
+        - Use 'Technical' for programming languages, technologies, ML/AI, SQL, databases, data science
         - Use 'Framework' for libraries like React, Django, TensorFlow, Scikit-learn, Pandas, NumPy
-        - Use 'Tool' for software tools like Git, Docker, AWS, Azure, Jupyter, VS Code
+        - Use 'Tool' for software tools like Git, Docker, AWS, MongoDB, Redis, Elasticsearch, Jupyter, VS Code
         - Use 'Language' for human languages like English, Spanish, French, Hindi
         - Use 'Soft' for soft skills like Leadership, Communication, Teamwork, Problem Solving
         
@@ -309,12 +311,13 @@ def map_skill_category(category: str) -> str:
 
     # Mapping rules
     technical_keywords = ['machine learning', 'data science', 'ai', 'ml', 'deep learning', 
-                         'computer vision', 'nlp', 'data', 'programming', 'python', 'java', 
-                         'javascript', 'sql', 'algorithms', 'statistics']
+                         'computer vision', 'nlp', 'data', 'database', 'programming', 'python', 'java', 
+                         'javascript', 'sql', 'algorithms', 'statistics', 'nosql', 'mysql', 'postgresql']
     framework_keywords = ['framework', 'library', 'tensorflow', 'pytorch', 'react', 
                          'django', 'flask', 'scikit', 'pandas', 'numpy', 'spring', 'angular']
     tool_keywords = ['tool', 'software', 'platform', 'cloud', 'aws', 'azure', 
-                    'docker', 'kubernetes', 'git', 'jenkins', 'jupyter', 'vscode']
+                    'docker', 'kubernetes', 'git', 'jenkins', 'jupyter', 'vscode', 
+                    'mongodb', 'redis', 'elasticsearch', 'cassandra']
     soft_keywords = ['soft', 'communication', 'leadership', 'management', 'teamwork', 
                     'problem solving', 'analytical', 'creative']
     language_keywords = ['language', 'english', 'spanish', 'french', 'hindi', 'mandarin']
