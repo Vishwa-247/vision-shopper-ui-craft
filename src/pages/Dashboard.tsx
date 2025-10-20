@@ -34,7 +34,7 @@ const Dashboard = () => {
     }
   }, [user]);
 
-  // Real-time listeners for courses and interviews
+  // Real-time listeners for courses, interviews, and profile updates
   useEffect(() => {
     if (!user) return;
 
@@ -51,8 +51,22 @@ const Dashboard = () => {
       })
       .subscribe();
 
+    // Listen for profile updates
+    const profileChannel = supabase
+      .channel('profile-updates')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'user_profiles',
+        filter: `user_id=eq.${user.id}`
+      }, () => {
+        loadUserData(); // Refresh profile data
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(courseChannel);
+      supabase.removeChannel(profileChannel);
     };
   }, [user]);
 
@@ -66,7 +80,23 @@ const Dashboard = () => {
         .single();
       
       if (profile) {
-        setUserProfile(profile);
+        // Get the latest completion percentage from database function
+        try {
+          const { data: completionResult } = await supabase.rpc('calculate_profile_completion', {
+            user_profile_id: user?.id
+          });
+          
+          // Update the profile with the latest completion percentage
+          const updatedProfile = {
+            ...profile,
+            completion_percentage: completionResult || profile.completion_percentage || 0
+          };
+          
+          setUserProfile(updatedProfile);
+        } catch (completionError) {
+          console.error('Failed to get completion percentage:', completionError);
+          setUserProfile(profile);
+        }
       }
 
       // Load recent courses
