@@ -218,14 +218,14 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
           </div>
         </CardHeader>
 
-        <CardContent className="flex-1 flex flex-col p-0">
+        <CardContent className="flex-1 flex flex-col p-0 min-h-0">
           <ScrollArea className="flex-1 px-4 overflow-y-auto overflow-x-hidden">
             <div className="space-y-4 py-4">
               {messages.map((message) => (
                 <div
                   key={message.id}
                   className={cn(
-                    "flex gap-3",
+                    "flex gap-3 min-w-0",
                     message.isBot ? "justify-start" : "justify-end"
                   )}
                 >
@@ -239,7 +239,7 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
                   
                   <div
                     className={cn(
-                      "max-w-[80%] rounded-lg px-3 py-2 break-words overflow-wrap-anywhere",
+                      "max-w-[80%] rounded-lg px-3 py-2 whitespace-pre-wrap break-words",
                       message.isBot
                         ? "bg-muted text-muted-foreground"
                         : "bg-primary text-primary-foreground"

@@ -181,7 +181,8 @@ const CompanyProblems = () => {
                                   {problem.name}
                                 </h3>
                                 <Badge 
-                                  className={`text-xs ${
+                                  variant="outline"
+                                  className={`badge ${
                                     problem.difficulty === 'Easy' ? 'badge-easy' : 
                                     problem.difficulty === 'Medium' ? 'badge-medium' : 
                                     'badge-hard'

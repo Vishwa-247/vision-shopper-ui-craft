@@ -142,30 +142,14 @@
     @apply animate-pulse bg-muted min-h-[200px] min-w-[200px] rounded-lg;
   }
 
-  /* Difficulty Badge Colors - White background with colored text only */
-  .badge-easy {
-    @apply bg-white text-green-600 border-green-500/30 font-semibold;
-  }
-  
-  .badge-medium {
-    @apply bg-white text-yellow-600 border-yellow-500/30 font-semibold;
-  }
-  
-  .badge-hard {
-    @apply bg-white text-red-600 border-red-500/30 font-semibold;
-  }
+  /* Difficulty Badge Colors - White background with colored text only (more specific to override defaults) */
+  .badge.badge-easy { @apply bg-white text-green-600 border-green-500/30 font-semibold; }
+  .badge.badge-medium { @apply bg-white text-amber-600 border-amber-500/30 font-semibold; }
+  .badge.badge-hard { @apply bg-white text-red-600 border-red-500/30 font-semibold; }
 
-  .dark .badge-easy {
-    @apply bg-card text-green-400 border-green-500/30;
-  }
-
-  .dark .badge-medium {
-    @apply bg-card text-yellow-400 border-yellow-500/30;
-  }
-
-  .dark .badge-hard {
-    @apply bg-card text-red-400 border-red-500/30;
-  }
+  .dark .badge.badge-easy { @apply bg-card text-green-400 border-green-500/30; }
+  .dark .badge.badge-medium { @apply bg-card text-amber-400 border-amber-500/30; }
+  .dark .badge.badge-hard { @apply bg-card text-red-400 border-red-500/30; }
 
   /* Fix hover colors for buttons and dropdowns */
   .hover-fix {

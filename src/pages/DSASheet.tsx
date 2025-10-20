@@ -120,7 +120,8 @@ const DSASheet = () => {
                                 {String(index + 1).padStart(2, '0')}
                               </Badge>
                               <Badge 
-                                className={`text-xs ${
+                                variant="outline"
+                                className={`badge ${
                                   topic.difficulty === 'Easy' ? 'badge-easy' : 
                                   topic.difficulty === 'Medium' ? 'badge-medium' : 
                                   'badge-hard'

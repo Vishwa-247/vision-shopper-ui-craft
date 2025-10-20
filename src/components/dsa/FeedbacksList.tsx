@@ -216,7 +216,7 @@ const FeedbacksList = () => {
                 <div className="space-y-2 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <CardTitle className="text-xl font-bold">{feedback.problem_name}</CardTitle>
-                    <Badge className={`text-xs font-semibold ${
+                    <Badge variant="outline" className={`badge text-xs font-semibold ${
                       feedback.difficulty === 'Easy' ? 'badge-easy' : 
                       feedback.difficulty === 'Medium' ? 'badge-medium' : 
                       'badge-hard'

@@ -160,7 +160,8 @@ const DSATopic = () => {
                               </h3>
                               {problem.difficulty && (
                                 <Badge 
-                                  className={`text-xs ${
+                                  variant="outline"
+                                  className={`badge ${
                                     problem.difficulty === 'Easy' ? 'badge-easy' : 
                                     problem.difficulty === 'Medium' ? 'badge-medium' : 
                                     'badge-hard'
