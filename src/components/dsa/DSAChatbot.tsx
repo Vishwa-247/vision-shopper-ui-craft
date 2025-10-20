@@ -122,39 +122,67 @@ const DSAChatbot: React.FC<DSAChatbotProps> = ({
       // Get current user for feedback context
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Try enhanced AI search with feedback context
-      const response = await fetch('http://localhost:8004/feedback/chatbot-response', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Try enhanced AI search with feedback context (fallback to edge function)
+      try {
+        const response = await fetch('http://localhost:8004/feedback/chatbot-response', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: userMessage.content,
+            user_id: user?.id || 'anonymous',
+            context: 'dsa_practice',
+            user_level: 'intermediate'
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          
+          const botMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            content: data.response || 'I apologize, but I couldn\'t generate a response. Please try again.',
+            isBot: true,
+            timestamp: new Date()
+          };
+
+          setMessages(prev => [...prev, botMessage]);
+          
+          toast({
+            title: "AI Response Generated",
+            description: `Source: ${data.source === 'contextual_ai' ? 'Personalized AI with your feedback history' : 'AI Knowledge base'}`,
+          });
+          return;
+        }
+      } catch (backendError) {
+        console.log('Backend service unavailable, falling back to edge function');
+      }
+
+      // Fallback to edge function
+      const { data: edgeData, error: edgeError } = await supabase.functions.invoke('dsa-intelligent-search', {
+        body: {
           query: userMessage.content,
-          user_id: user?.id || 'anonymous',
           context: 'dsa_practice',
-          user_level: 'intermediate'
-        })
+          userLevel: 'intermediate'
+        }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        
-        const botMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          content: data.response || 'I apologize, but I couldn\'t generate a response. Please try again.',
-          isBot: true,
-          timestamp: new Date()
-        };
+      if (edgeError) throw edgeError;
 
-        setMessages(prev => [...prev, botMessage]);
-        
-        toast({
-          title: "AI Response Generated",
-          description: `Source: ${data.source === 'contextual_ai' ? 'Personalized AI with your feedback history' : 'AI Knowledge base'}`,
-        });
-      } else {
-        throw new Error('DSA Feedback service unavailable');
-      }
+      const botMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: edgeData?.response || 'I apologize, but I couldn\'t generate a response. Please try again.',
+        isBot: true,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, botMessage]);
+      
+      toast({
+        title: "AI Response Generated",
+        description: "Source: AI Knowledge base",
+      });
     } catch (error) {
       console.error('Error calling search service:', error);
       

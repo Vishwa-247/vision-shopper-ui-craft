@@ -14,7 +14,6 @@ import { useDSAFilters } from "@/hooks/useDSAFilters";
 import { useFavorites } from "@/hooks/useFavorites";
 import FavoritesTable from "@/components/FavoritesTable";
 import DSAChatbot from "@/components/dsa/DSAChatbot";
-import { FeedbackSystem } from "@/components/dsa/FeedbackSystem";
 import FeedbacksList from "@/components/dsa/FeedbacksList";
 
 const DSASheet = () => {
