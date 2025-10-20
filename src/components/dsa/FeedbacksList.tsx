@@ -3,38 +3,51 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Star, Clock, TrendingUp, ChevronDown, ChevronUp, BookOpen, Lightbulb, Target, Sparkles, Copy, CheckCircle2, Loader2 } from 'lucide-react';
+import { Star, Clock, TrendingUp, ChevronDown, ChevronUp, BookOpen, Lightbulb, Target, Sparkles, Copy, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
 // Map feedback categories to actual topic routes
-const getCategoryRoute = (category: string): string => {
+const getCategoryRoute = (category: string, problemName: string): string => {
+  // Normalize category name for matching
+  const normalizedCategory = category.toLowerCase().trim();
+
   const categoryMap: Record<string, string> = {
-    'Arrays': 'array-basics',
-    'Strings': 'string-basics', 
-    'Linked Lists': 'linked-list',
-    'Trees': 'tree-basics',
-    'Graphs': 'graph-basics',
-    'Dynamic Programming': 'dp-basics',
-    'Greedy': 'greedy-basics',
-    'Backtracking': 'backtracking',
-    'Sorting': 'sorting-basics',
-    'Searching': 'searching-basics',
-    'Hash Tables': 'hash-table',
-    'Heaps': 'heap-basics',
-    'Stacks': 'stack-basics',
-    'Queues': 'queue-basics',
-    'Two Pointers': 'two-pointers',
-    'Sliding Window': 'sliding-window',
-    'Binary Search': 'binary-search',
-    'Recursion': 'recursion',
-    'Math': 'math-basics',
-    'Bit Manipulation': 'bit-manipulation',
-    // Add more mappings as needed
+    'arrays': 'array-basics',
+    'array': 'array-basics',
+    'strings': 'string-basics',
+    'string': 'string-basics',
+    'linked lists': 'linked-list',
+    'linked list': 'linked-list',
+    'trees': 'tree-basics',
+    'tree': 'tree-basics',
+    'graphs': 'graph-basics',
+    'graph': 'graph-basics',
+    'dynamic programming': 'dp-basics',
+    'dp': 'dp-basics',
+    'greedy': 'greedy-basics',
+    'backtracking': 'backtracking',
+    'sorting': 'sorting-basics',
+    'searching': 'searching-basics',
+    'hash tables': 'hash-table',
+    'hash table': 'hash-table',
+    'heaps': 'heap-basics',
+    'heap': 'heap-basics',
+    'stacks': 'stack-basics',
+    'stack': 'stack-basics',
+    'queues': 'queue-basics',
+    'queue': 'queue-basics',
+    'two pointers': 'two-pointers',
+    'sliding window': 'sliding-window',
+    'binary search': 'binary-search',
+    'recursion': 'recursion',
+    'math': 'math-basics',
+    'bit manipulation': 'bit-manipulation',
+    // Add more variations
   };
 
-  return categoryMap[category] || 'array-basics'; // Default fallback
+  return categoryMap[normalizedCategory] || 'array-basics'; // Default fallback
 };
 
 interface Feedback {
@@ -148,14 +161,6 @@ const FeedbacksList = () => {
     }
   };
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty.toLowerCase()) {
-      case 'easy': return 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20';
-      case 'medium': return 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20';
-      case 'hard': return 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20';
-      default: return 'bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20';
-    }
-  };
 
   const copyToClipboard = (text: string, sectionId: string) => {
     navigator.clipboard.writeText(text);
@@ -211,7 +216,11 @@ const FeedbacksList = () => {
                 <div className="space-y-2 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <CardTitle className="text-xl font-bold">{feedback.problem_name}</CardTitle>
-                    <Badge className={`${getDifficultyColor(feedback.difficulty)} font-semibold border`}>
+                    <Badge className={`text-xs font-semibold ${
+                      feedback.difficulty === 'Easy' ? 'badge-easy' : 
+                      feedback.difficulty === 'Medium' ? 'badge-medium' : 
+                      'badge-hard'
+                    }`}>
                       {feedback.difficulty}
                     </Badge>
                     <Badge variant="outline" className="text-xs font-medium">
@@ -253,7 +262,7 @@ const FeedbacksList = () => {
                   size="sm"
                   onClick={() => {
                     try {
-                      const topicRoute = getCategoryRoute(feedback.category);
+                      const topicRoute = getCategoryRoute(feedback.category, feedback.problem_name);
                       navigate(`/dsa-sheet/topic/${topicRoute}`);
                     } catch (error) {
                       console.error('Navigation error:', error);
@@ -265,6 +274,34 @@ const FeedbacksList = () => {
                 >
                   <TrendingUp className="h-4 w-4" />
                   Retry
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    if (confirm('Are you sure you want to delete this feedback?')) {
+                      try {
+                        const { error } = await supabase
+                          .from('dsa_feedbacks')
+                          .delete()
+                          .eq('id', feedback.id);
+
+                        if (error) throw error;
+
+                        // Note: dsa_progress table doesn't exist, using dsa_feedbacks for progress tracking
+
+                        setFeedbacks(prev => prev.filter(f => f.id !== feedback.id));
+                        toast.success('Feedback deleted successfully');
+                      } catch (error) {
+                        console.error('Delete error:', error);
+                        toast.error('Failed to delete feedback');
+                      }
+                    }
+                  }}
+                  className="flex items-center gap-2 hover:bg-destructive/10 text-destructive hover:text-destructive/80"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
                 </Button>
               </div>
 

@@ -266,7 +266,7 @@ const DSASheet = () => {
                       <div className="text-3xl font-bold text-secondary">
                         {stats.topics.solvedProblems}
                       </div>
-                      <div className="text-sm text-foreground">Solved</div>
+                      <div className="text-sm text-primary font-semibold">Solved</div>
                     </div>
                     <div className="w-px h-12 bg-border"></div>
                     <div>

@@ -302,19 +302,6 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Course Analytics
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center">
-                    <GraduationCap className="mr-2 h-4 w-4 text-primary" />
-                    <div className="text-2xl font-bold">{courseStats.completed}/{courseStats.total}</div>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
