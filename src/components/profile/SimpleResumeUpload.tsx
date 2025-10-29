@@ -57,7 +57,7 @@ const SimpleResumeUpload = () => {
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ];
-
+    
     if (!allowedTypes.includes(file.type)) {
       toast({
         title: "Invalid file type",
@@ -351,7 +351,7 @@ const SimpleResumeUpload = () => {
       console.log("🎬 [FRONTEND DEBUG] Starting AI processing simulation...");
       // AI Agent processing stages
       const stages = [
-        "🔍 Scanning your resume...",
+                 "🔍 Scanning your resume...",
         "🧠 AI is reading your content with built-in parser...",
         "📊 Extracting work experience...",
         "🎓 Analyzing education history...",
@@ -392,7 +392,7 @@ const SimpleResumeUpload = () => {
 
       const result = await uploadResume(file);
       console.log("📋 [FRONTEND DEBUG] Upload result received:", result);
-
+      
       clearInterval(progressInterval);
       setUploadProgress(100);
       setAiStage("🎉 Analysis complete!");
@@ -415,53 +415,53 @@ const SimpleResumeUpload = () => {
             result.extracted_data._userId = uploadedUserId;
           }
 
-          // Show AI agent success toast
-          setTimeout(() => {
-            toast({
-              title: "🤖 AI Agent Ready!",
+        // Show AI agent success toast
+        setTimeout(() => {
+          toast({
+            title: "🤖 AI Agent Ready!",
               description:
                 "I've analyzed your resume and extracted your profile data.",
-              duration: 4000,
-            });
-
-            // Show auto-fill confirmation toast with action buttons
-            setTimeout(() => {
-              toast({
-                title: "🎯 Auto-Fill Profile?",
+            duration: 4000,
+          });
+          
+          // Show auto-fill confirmation toast with action buttons
+          setTimeout(() => {
+            toast({
+              title: "🎯 Auto-Fill Profile?",
                 description:
                   "Should I automatically fill your profile with the extracted data?",
-                duration: 8000,
-                action: (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        handleAutoFill(result.extracted_data);
-                      }}
-                      className="px-3 py-1 bg-primary text-primary-foreground rounded text-sm hover:bg-primary/90"
-                    >
-                      Yes, Fill Profile
-                    </button>
-                    <button
-                      onClick={() => {
-                        setCurrentFile(null);
-                        setUploadProgress(0);
-                        setIsProcessing(false);
-                        toast({
-                          title: "Resume Saved!",
+              duration: 8000,
+              action: (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      handleAutoFill(result.extracted_data);
+                    }}
+                    className="px-3 py-1 bg-primary text-primary-foreground rounded text-sm hover:bg-primary/90"
+                  >
+                    Yes, Fill Profile
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCurrentFile(null);
+                      setUploadProgress(0);
+                      setIsProcessing(false);
+                      toast({
+                        title: "Resume Saved!",
                           description:
                             "Your resume is saved. You can fill your profile manually anytime.",
-                        });
-                      }}
-                      className="px-3 py-1 bg-secondary text-secondary-foreground rounded text-sm hover:bg-secondary/90"
-                    >
-                      Skip
-                    </button>
-                  </div>
-                ),
-              });
-            }, 1500);
-          }, 1000);
-        } else {
+                      });
+                    }}
+                    className="px-3 py-1 bg-secondary text-secondary-foreground rounded text-sm hover:bg-secondary/90"
+                  >
+                    Skip
+                  </button>
+                </div>
+              ),
+            });
+          }, 1500);
+        }, 1000);
+      } else {
           console.log(
             "❌ [FRONTEND DEBUG] Upload failed - no extracted data available"
           );
@@ -493,32 +493,32 @@ const SimpleResumeUpload = () => {
         stack: error.stack,
         name: error.name,
       });
-      setIsProcessing(false);
+        setIsProcessing(false);
       setIsUploading(false);
-      setUploadProgress(0);
+        setUploadProgress(0);
       setAiStage("");
-
-      // Show specific error message based on error type
+        
+        // Show specific error message based on error type
       if (error.message?.includes("Unsupported file type")) {
         console.log("❌ [FRONTEND DEBUG] File type error detected");
-        toast({
-          title: "❌ File Type Not Supported",
+          toast({
+            title: "❌ File Type Not Supported",
           description:
             "Please upload a PDF or Word document (.pdf, .doc, .docx)",
-          variant: "destructive",
-          duration: 6000,
-        });
-      } else {
+            variant: "destructive",
+            duration: 6000,
+          });
+        } else {
         console.log("❌ [FRONTEND DEBUG] General processing error");
-        toast({
-          title: "🤖 Built-in AI Processing Failed",
+          toast({
+            title: "🤖 Built-in AI Processing Failed",
           description:
             error.message ||
             "Resume analysis failed. The built-in parser couldn't extract data from your resume.",
-          variant: "destructive",
-          duration: 6000,
-        });
-      }
+            variant: "destructive",
+            duration: 6000,
+          });
+        }
     }
   };
 
@@ -724,9 +724,9 @@ const SimpleResumeUpload = () => {
                   <p className="text-sm text-muted-foreground">{aiStage}</p>
                 </div>
               </div>
-
+              
               <Progress value={uploadProgress} className="h-3" />
-
+              
               <div className="text-center">
                 <p className="text-xs text-muted-foreground">
                   AI is analyzing your professional background...
@@ -744,8 +744,8 @@ const SimpleResumeUpload = () => {
             <div
               {...getRootProps()}
               className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200 ${
-                isDragActive
-                  ? "border-primary bg-primary/10 scale-[1.02]"
+                isDragActive 
+                  ? "border-primary bg-primary/10 scale-[1.02]" 
                   : "border-muted-foreground/25 hover:border-primary/50 hover:bg-primary/5"
               }`}
             >
@@ -756,7 +756,7 @@ const SimpleResumeUpload = () => {
                     <Upload className="h-8 w-8 text-primary" />
                   </div>
                 </div>
-
+                
                 <div>
                   <h3 className="text-lg font-semibold mb-2">
                     {isDragActive
@@ -767,7 +767,7 @@ const SimpleResumeUpload = () => {
                     AI will automatically extract and fill your profile
                   </p>
                 </div>
-
+                
                 <div className="flex flex-wrap justify-center gap-2 mb-4">
                   <Badge variant="outline" className="text-xs">
                     PDF
@@ -782,7 +782,7 @@ const SimpleResumeUpload = () => {
                     Up to 10MB
                   </Badge>
                 </div>
-
+                
                 <Button size="lg" className="px-8">
                   <Upload className="h-4 w-4 mr-2" />
                   Choose Resume
@@ -837,7 +837,7 @@ const SimpleResumeUpload = () => {
             uploadDate={currentResume.uploadDate}
             onDelete={handleDelete}
           />
-
+          
           {/* Upload New Resume */}
           <Card>
             <CardContent className="pt-6">

@@ -17,14 +17,15 @@ Author: StudyMate Platform
 Version: 1.0.0
 """
 
-import os
+import asyncio
 import json
 import logging
-import asyncio
-from datetime import datetime
-from typing import Dict, List, Optional, Any
+import os
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 from dotenv import load_dotenv
 
 # Load environment variables from backend root
@@ -32,20 +33,21 @@ backend_root = Path(__file__).parent.parent.parent
 env_path = backend_root / ".env"
 load_dotenv(dotenv_path=env_path)
 
+# Import shared database utilities
+import sys
+
+import httpx
 import uvicorn
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-import httpx
 
-# Import shared database utilities
-import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from shared.database.supabase_connection import (
-    SupabaseManager, init_database, close_database, health_check as db_health_check
-)
+from shared.database.supabase_connection import SupabaseManager, close_database
+from shared.database.supabase_connection import health_check as db_health_check
+from shared.database.supabase_connection import init_database
 
 # Configure logging
 logging.basicConfig(

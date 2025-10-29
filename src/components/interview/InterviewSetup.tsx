@@ -107,7 +107,7 @@ const InterviewSetup = ({ onSubmit, onBack, isLoading = false }: InterviewSetupP
           <div className="space-y-2">
             <label
               htmlFor="role"
-              className="text-sm font-medium text-foreground flex items-center gap-2"
+              className="block text-sm font-medium text-foreground flex items-center gap-2"
             >
               <Briefcase size={16} />
               Job Role
@@ -118,15 +118,15 @@ const InterviewSetup = ({ onSubmit, onBack, isLoading = false }: InterviewSetupP
               value={role}
               onChange={(e) => setRole(e.target.value)}
               placeholder="e.g., Software Engineer"
-              className="w-full px-5 py-3 bg-white/20 dark:bg-black/20 border-2 border-border rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-foreground transition-all duration-300 placeholder:text-muted-foreground/50"
+              className="w-full px-4 py-2 bg-white/20 dark:bg-black/20 border border-border rounded-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none text-foreground"
             />
-            <div className="pt-3 flex flex-wrap gap-2">
+            <div className="pt-2 flex flex-wrap gap-2">
               {popularRoles.map((popularRole) => (
                 <button
                   key={popularRole}
                   type="button"
                   onClick={() => setRole(popularRole)}
-                  className="px-4 py-2 text-sm bg-gradient-to-r from-secondary to-secondary/80 text-foreground rounded-full hover:scale-105 hover:shadow-md transition-all duration-200 border border-border/30"
+                  className="px-3 py-1 text-xs bg-secondary text-foreground rounded-full hover:bg-secondary/70 transition-colors"
                 >
                   {popularRole}
                 </button>
@@ -137,7 +137,7 @@ const InterviewSetup = ({ onSubmit, onBack, isLoading = false }: InterviewSetupP
           <div className="space-y-2">
             <label
               htmlFor="techStack"
-              className="text-sm font-medium text-foreground flex items-center gap-2"
+              className="block text-sm font-medium text-foreground flex items-center gap-2"
             >
               <Code size={16} />
               Tech Stack
@@ -148,15 +148,15 @@ const InterviewSetup = ({ onSubmit, onBack, isLoading = false }: InterviewSetupP
               value={techStack}
               onChange={(e) => setTechStack(e.target.value)}
               placeholder="e.g., React, Python"
-              className="w-full px-5 py-3 bg-white/20 dark:bg-black/20 border-2 border-border rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-foreground transition-all duration-300 placeholder:text-muted-foreground/50"
+              className="w-full px-4 py-2 bg-white/20 dark:bg-black/20 border border-border rounded-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none text-foreground"
             />
-            <div className="pt-3 flex flex-wrap gap-2">
+            <div className="pt-2 flex flex-wrap gap-2">
               {popularTechStacks.map((stack) => (
                 <button
                   key={stack}
                   type="button"
                   onClick={() => setTechStack(stack)}
-                  className="px-4 py-2 text-sm bg-gradient-to-r from-secondary to-secondary/80 text-foreground rounded-full hover:scale-105 hover:shadow-md transition-all duration-200 border border-border/30"
+                  className="px-3 py-1 text-xs bg-secondary text-foreground rounded-full hover:bg-secondary/70 transition-colors"
                 >
                   {stack}
                 </button>
@@ -167,21 +167,21 @@ const InterviewSetup = ({ onSubmit, onBack, isLoading = false }: InterviewSetupP
           <div className="space-y-2">
             <label
               htmlFor="experience"
-              className="text-sm font-medium text-foreground flex items-center gap-2"
+              className="block text-sm font-medium text-foreground flex items-center gap-2"
             >
               <Clock size={16} />
               Experience
             </label>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-4 gap-2">
               {experienceOptions.map((option) => (
                 <button
                   key={option.value}
                   type="button"
                   onClick={() => setExperience(option.value)}
-                  className={`px-4 py-3 text-sm font-medium rounded-xl transition-all duration-300 ${
+                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
                     experience === option.value
-                      ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg scale-105"
-                      : "bg-white/20 dark:bg-black/20 text-foreground hover:bg-white/30 dark:hover:bg-black/30 hover:scale-102 border-2 border-border/30"
+                      ? "bg-primary text-white"
+                      : "bg-white/20 dark:bg-black/20 text-foreground hover:bg-white/30 dark:hover:bg-black/30"
                   }`}
                 >
                   {option.label}
@@ -192,16 +192,9 @@ const InterviewSetup = ({ onSubmit, onBack, isLoading = false }: InterviewSetupP
 
           <button
             type="submit"
-            className="w-full px-6 py-4 text-white font-semibold bg-gradient-to-r from-primary to-primary/80 rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-105 border-2 border-primary/20"
+            className="w-full px-4 py-2 text-white font-medium bg-primary rounded-lg transition-all hover:bg-primary/90"
           >
-            {isLoading ? (
-              <div className="flex items-center justify-center gap-2">
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                Setting Up...
-              </div>
-            ) : (
-              "Start Interview"
-            )}
+            {isLoading ? "Setting Up..." : "Start Interview"}
           </button>
         </form>
       </GlassMorphism>

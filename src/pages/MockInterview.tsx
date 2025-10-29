@@ -5,6 +5,7 @@
 // import InterviewTypeSelector from "@/components/interview/InterviewTypeSelector";
 // import TechnicalInterviewSetup from "@/components/interview/TechnicalInterviewSetup";
 // import InterviewSetup from "@/components/interview/InterviewSetup";
+// import VideoRecorder from "@/components/interview/VideoRecorder";
 // import Container from "@/components/ui/Container";
 // import { ChevronLeft, ChevronRight, Download, Loader2 } from "lucide-react";
 // import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -622,16 +623,6 @@ const MockInterview = () => {
     },
   });
 
-  // Add aggregated face metrics for submission
-  const [aggregatedFaceMetrics, setAggregatedFaceMetrics] = useState({
-    frameCount: 0,
-    totalConfident: 0,
-    totalStressed: 0,
-    totalNervous: 0,
-    blinkCount: 0,
-    lookingAtCameraCount: 0,
-  });
-
   const handleTypeSelection = (type: string) => {
     setSelectedInterviewType(type);
     setStage(InterviewStage.Setup);
@@ -848,18 +839,16 @@ const MockInterview = () => {
             </div>
 
             <div className="space-y-6">
-              <Card className="rounded-2xl border-2 border-white/10 bg-white/50 dark:bg-black/50 backdrop-blur-xl shadow-2xl">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                    📹 Camera Preview
-                  </CardTitle>
-                  <CardDescription className="text-muted-foreground">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Camera Preview</CardTitle>
+                  <CardDescription>
                     Check your camera and microphone before starting
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {/* Preview only - no capture here for now */}
-                  <div className="rounded-xl border-2 border-white/20 p-4 text-sm text-muted-foreground bg-white/20 dark:bg-black/20 backdrop-blur-sm">
+                  <div className="rounded border p-2 text-sm text-muted-foreground">
                     Your camera preview will appear when you start the interview.
                   </div>
                 </CardContent>
@@ -892,65 +881,43 @@ const MockInterview = () => {
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <div className="mb-8">
-                {/* Progress Indicator */}
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                      Question Progress
-                    </h2>
-                    <div className="px-4 py-2 bg-gradient-to-r from-primary/20 to-accent/20 rounded-xl border border-primary/30">
-                      <span className="text-sm font-semibold text-primary">
-                        {currentQuestionIndex + 1} / {questions.length}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="w-full bg-secondary/30 rounded-full h-3 overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-500 ease-out"
-                      style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
-                    />
-                  </div>
-                </div>
-
-                <h2 className="text-xl font-semibold mb-4">
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold mb-2">
                   Question {currentQuestionIndex + 1}:
                 </h2>
-                <div className="p-6 bg-gradient-to-br from-white/50 to-white/20 dark:from-black/50 dark:to-black/20 rounded-2xl border-2 border-white/10 backdrop-blur-xl shadow-2xl text-lg font-medium">
+                <div className="p-4 bg-muted rounded-md text-lg mb-4">
                   {questions[currentQuestionIndex]}
                 </div>
-                <p className="text-muted-foreground mt-4 text-center">
+                <p className="text-muted-foreground">
                   When you're ready, click "Start Recording" and begin your
                   answer. We'll analyze both your verbal response and facial
                   expressions.
                 </p>
               </div>
 
-              <Card className="mt-8 rounded-2xl border-2 border-white/10 bg-white/50 dark:bg-black/50 backdrop-blur-xl shadow-2xl">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                    💡 Answering Tips
-                  </CardTitle>
+              <Card className="mt-8">
+                <CardHeader>
+                  <CardTitle>Answering Tips</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ul className="space-y-3">
-                    <li className="flex items-start gap-3 p-3 bg-white/20 dark:bg-black/20 rounded-xl border border-white/10">
-                      <div className="rounded-full bg-primary/20 p-1.5 mt-0.5">
-                        <span className="block h-2 w-2 rounded-full bg-primary"></span>
+                  <ul className="space-y-2">
+                    <li className="flex items-start gap-2">
+                      <div className="rounded-full bg-primary/10 p-1 mt-0.5">
+                        <span className="block h-1.5 w-1.5 rounded-full bg-primary"></span>
                       </div>
-                      <span className="font-medium">Use specific examples from your experience</span>
+                      <span>Use specific examples from your experience</span>
                     </li>
-                    <li className="flex items-start gap-3 p-3 bg-white/20 dark:bg-black/20 rounded-xl border border-white/10">
-                      <div className="rounded-full bg-primary/20 p-1.5 mt-0.5">
-                        <span className="block h-2 w-2 rounded-full bg-primary"></span>
+                    <li className="flex items-start gap-2">
+                      <div className="rounded-full bg-primary/10 p-1 mt-0.5">
+                        <span className="block h-1.5 w-1.5 rounded-full bg-primary"></span>
                       </div>
-                      <span className="font-medium">Avoid filler words like "um" and "uh"</span>
+                      <span>Avoid filler words like "um" and "uh"</span>
                     </li>
-                    <li className="flex items-start gap-3 p-3 bg-white/20 dark:bg-black/20 rounded-xl border border-white/10">
-                      <div className="rounded-full bg-primary/20 p-1.5 mt-0.5">
-                        <span className="block h-2 w-2 rounded-full bg-primary"></span>
+                    <li className="flex items-start gap-2">
+                      <div className="rounded-full bg-primary/10 p-1 mt-0.5">
+                        <span className="block h-1.5 w-1.5 rounded-full bg-primary"></span>
                       </div>
-                      <span className="font-medium">Speak confidently and maintain good posture</span>
+                      <span>Speak confidently and maintain good posture</span>
                     </li>
                   </ul>
                 </CardContent>
@@ -968,8 +935,6 @@ const MockInterview = () => {
                     });
                     if (!res.ok) return;
                     const data = await res.json();
-
-                    // Update real-time display
                     setMetricsData(prev => ({
                       ...prev,
                       facialData: {
@@ -983,64 +948,21 @@ const MockInterview = () => {
                         head_pose: data.face_tracking?.head_pose ?? { pitch: 0, yaw: 0, roll: 0 },
                       },
                     }));
-
-                    // Aggregate metrics for submission
-                    setAggregatedFaceMetrics(prev => ({
-                      frameCount: prev.frameCount + 1,
-                      totalConfident: prev.totalConfident + (data.metrics?.confident ?? 0),
-                      totalStressed: prev.totalStressed + (data.metrics?.stressed ?? 0),
-                      totalNervous: prev.totalNervous + (data.metrics?.nervous ?? 0),
-                      blinkCount: prev.blinkCount + (data.face_tracking?.blink_count ?? 0),
-                      lookingAtCameraCount: prev.lookingAtCameraCount + (data.face_tracking?.looking_at_camera ? 1 : 0),
-                    }));
                   } catch (e) {
                     console.error('Face frame analysis error:', e);
                   }
                 }}
                 onAudioReady={async (blob) => {
                   try {
-                    // Calculate averages from aggregated metrics
-                    const avgMetrics = {
-                      avg_confident: aggregatedFaceMetrics.frameCount > 0 
-                        ? (aggregatedFaceMetrics.totalConfident / aggregatedFaceMetrics.frameCount) * 100 
-                        : 50,
-                      avg_stressed: aggregatedFaceMetrics.frameCount > 0 
-                        ? (aggregatedFaceMetrics.totalStressed / aggregatedFaceMetrics.frameCount) * 100 
-                        : 20,
-                      avg_nervous: aggregatedFaceMetrics.frameCount > 0 
-                        ? (aggregatedFaceMetrics.totalNervous / aggregatedFaceMetrics.frameCount) * 100 
-                        : 15,
-                      blink_count: aggregatedFaceMetrics.blinkCount,
-                      looking_at_camera_percent: aggregatedFaceMetrics.frameCount > 0 
-                        ? (aggregatedFaceMetrics.lookingAtCameraCount / aggregatedFaceMetrics.frameCount) * 100 
-                        : 50,
-                    };
-
                     const fd = new FormData();
                     fd.append('audio', blob, 'answer.webm');
                     fd.append('question_id', String(currentQuestionIndex));
-                    fd.append('face_metrics', JSON.stringify(avgMetrics));
-
                     const resp = await fetch(`http://localhost:8000/interviews/${interviewId}/answer`, {
                       method: 'POST',
                       body: fd,
                     });
-                    
-                    const result = await resp.json();
-                    
-                    if (result.success) {
-                      setRecordingComplete(true);
-                      
-                      // Reset aggregated metrics for next question
-                      setAggregatedFaceMetrics({
-                        frameCount: 0,
-                        totalConfident: 0,
-                        totalStressed: 0,
-                        totalNervous: 0,
-                        blinkCount: 0,
-                        lookingAtCameraCount: 0,
-                      });
-                    }
+                    await resp.json();
+                    setRecordingComplete(true);
                   } catch (err) {
                     console.error('Submit answer failed:', err);
                     toast({ title: 'Submission Error', description: 'Please try again.', variant: 'destructive' });
@@ -1055,21 +977,17 @@ const MockInterview = () => {
                 isVisible={isRecording}
               />
 
-              <div className="mt-8 flex justify-center space-x-4">
+              <div className="mt-6 flex justify-center space-x-4">
                 {recordingComplete ? (
                   <Button
                     onClick={handleNextQuestion}
-                    className="px-8 py-4 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl flex items-center space-x-2 shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 border-2 border-primary/20 font-semibold"
+                    className="px-6 py-3 bg-primary text-white rounded-lg flex items-center space-x-2"
                   >
                     <span>Next Question</span>
-                    <ChevronRight size={18} />
+                    <ChevronRight size={16} />
                   </Button>
                 ) : (
-                  <Button 
-                    variant="outline" 
-                    onClick={handleCancel}
-                    className="px-8 py-4 rounded-xl border-2 border-white/20 hover:bg-white/10 hover:scale-105 transition-all duration-300 font-semibold"
-                  >
+                  <Button variant="outline" onClick={handleCancel}>
                     Cancel
                   </Button>
                 )}

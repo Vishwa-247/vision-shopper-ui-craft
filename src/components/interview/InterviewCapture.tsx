@@ -113,24 +113,18 @@ const InterviewCapture: React.FC<Props> = ({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border-2 border-white/10 p-3 bg-black/50 backdrop-blur-sm shadow-2xl">
-        <video ref={videoRef} className="max-w-full rounded-xl" muted playsInline />
+    <div className="space-y-3">
+      <div className="rounded border p-2 bg-black">
+        <video ref={videoRef} className="max-w-full" muted playsInline />
       </div>
-      <div className="flex gap-3">
+      <div className="flex gap-2">
         {!recording ? (
-          <button 
-            onClick={startRecording} 
-            className="px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-primary/80 text-white font-semibold shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 border-2 border-primary/20"
-          >
-            🎤 Start Interview (audio + camera analysis)
+          <button onClick={startRecording} className="px-3 py-2 rounded bg-primary text-white">
+            Start Interview (audio + camera analysis)
           </button>
         ) : (
-          <button 
-            onClick={stopRecording} 
-            className="px-6 py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-500 text-white font-semibold shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 border-2 border-red-500/20 animate-pulse"
-          >
-            ⏹️ Stop & Save Answer
+          <button onClick={stopRecording} className="px-3 py-2 rounded bg-red-600 text-white">
+            Stop & Save Answer
           </button>
         )}
       </div>

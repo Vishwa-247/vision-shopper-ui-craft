@@ -1,12 +1,11 @@
 import argparse
-import time
 import os
 import sys
+import time
 from pathlib import Path
 
 import cv2
 import numpy as np
-
 
 CLASSES = ["angry", "disgust", "fear", "happy", "sad", "surprise", "neutral"]
 
@@ -162,5 +161,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
