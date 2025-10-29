@@ -190,46 +190,69 @@ const InlineFeedback = ({ isExpanded, onToggle, problemName, difficulty, company
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {/* Toggle Header */}
       <Card 
-        className="cursor-pointer hover:shadow-md transition-shadow border-primary/20"
+        className="cursor-pointer hover:shadow-2xl hover:scale-105 transition-all duration-300 border-2 border-white/10 bg-white/50 dark:bg-black/50 backdrop-blur-xl rounded-2xl"
         onClick={onToggle}
       >
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <MessageCircle className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">Share Your Experience</span>
-              <Badge variant="outline" className="text-xs">
+              <MessageCircle className="h-5 w-5 text-primary animate-pulse" />
+              <span className="text-sm font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                Share Your Experience
+              </span>
+              <Badge 
+                variant="outline" 
+                className={`text-xs px-3 py-1 rounded-full border-2 font-semibold ${
+                  difficulty === 'Easy' ? 'border-green-500/30 bg-green-500/10 text-green-600' :
+                  difficulty === 'Medium' ? 'border-amber-500/30 bg-amber-500/10 text-amber-600' :
+                  'border-red-500/30 bg-red-500/10 text-red-600'
+                }`}
+              >
                 {difficulty}
               </Badge>
             </div>
-            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            {isExpanded ? (
+              <ChevronUp className="h-5 w-5 text-primary transition-transform duration-300" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-primary transition-transform duration-300" />
+            )}
           </div>
         </CardContent>
       </Card>
 
       {/* Expandable Content */}
       {isExpanded && (
-        <div className="space-y-4">
-          <Card>
+        <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+          <Card className="rounded-2xl border-2 border-white/10 bg-white/50 dark:bg-black/50 backdrop-blur-xl shadow-2xl">
             <CardContent className="p-6 space-y-6">
               {/* Problem Info */}
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm">{problemName}</h4>
-                <Badge variant="secondary" className="text-xs">{company}</Badge>
+              <div className="space-y-3">
+                <h4 className="font-bold text-lg bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                  {problemName}
+                </h4>
+                <Badge 
+                  variant="secondary" 
+                  className="text-xs px-3 py-1 rounded-full bg-gradient-to-r from-secondary to-secondary/80 text-foreground font-medium"
+                >
+                  {company}
+                </Badge>
               </div>
 
               {/* Experience Rating */}
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">How was your experience?</Label>
-                <RadioGroup value={experience} onValueChange={setExperience}>
+              <div className="space-y-4">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <Star className="h-4 w-4 text-primary" />
+                  How was your experience?
+                </Label>
+                <RadioGroup value={experience} onValueChange={setExperience} className="space-y-3">
                   {experienceOptions.map(option => (
-                    <div key={option.value} className="flex items-center space-x-2">
-                      <RadioGroupItem value={option.value} id={option.value} />
-                      <Label htmlFor={option.value} className={`text-sm cursor-pointer ${option.color}`}>
-                        <span className="mr-2">{option.icon}</span>
+                    <div key={option.value} className="flex items-center space-x-3 p-3 bg-white/20 dark:bg-black/20 rounded-xl border border-white/10 hover:bg-white/30 dark:hover:bg-black/30 transition-all duration-300">
+                      <RadioGroupItem value={option.value} id={option.value} className="border-2" />
+                      <Label htmlFor={option.value} className={`text-sm cursor-pointer font-medium ${option.color} flex items-center gap-2`}>
+                        <span className="text-lg">{option.icon}</span>
                         {option.label}
                       </Label>
                     </div>
@@ -238,8 +261,11 @@ const InlineFeedback = ({ isExpanded, onToggle, problemName, difficulty, company
               </div>
 
               {/* Struggle Areas */}
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">What areas did you struggle with?</Label>
+              <div className="space-y-4">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary" />
+                  What areas did you struggle with?
+                </Label>
                 <div className="flex flex-wrap gap-2">
                   {struggleAreas.map(area => (
                     <Button
@@ -247,7 +273,11 @@ const InlineFeedback = ({ isExpanded, onToggle, problemName, difficulty, company
                       variant={struggledAreas.includes(area) ? "default" : "outline"}
                       size="sm"
                       onClick={() => toggleStruggleArea(area)}
-                      className="justify-start text-xs h-8"
+                      className={`justify-start text-xs h-9 px-4 rounded-xl transition-all duration-300 ${
+                        struggledAreas.includes(area) 
+                          ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg scale-105" 
+                          : "bg-white/20 dark:bg-black/20 text-foreground hover:bg-white/30 dark:hover:bg-black/30 hover:scale-105 border-2 border-border/30"
+                      }`}
                     >
                       {area}
                     </Button>
@@ -257,15 +287,15 @@ const InlineFeedback = ({ isExpanded, onToggle, problemName, difficulty, company
 
               {/* Boilerplate Suggestions */}
               {struggledAreas.length > 0 && (
-                <div className="space-y-3">
-                  <Label className="text-sm font-medium flex items-center gap-2">
-                    <Brain className="h-4 w-4" />
+                <div className="space-y-4">
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <Brain className="h-4 w-4 text-primary animate-pulse" />
                     Personalized Learning Suggestions
                   </Label>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {getBoilerplateSuggestions().map((suggestion, index) => (
-                      <div key={index} className="p-3 bg-primary/5 rounded-lg border-l-4 border-primary">
-                        <p className="text-xs text-muted-foreground">{suggestion}</p>
+                      <div key={index} className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl border-l-4 border-primary shadow-lg">
+                        <p className="text-sm text-muted-foreground font-medium">{suggestion}</p>
                       </div>
                     ))}
                   </div>
@@ -273,8 +303,9 @@ const InlineFeedback = ({ isExpanded, onToggle, problemName, difficulty, company
               )}
 
               {/* Detailed Feedback */}
-              <div className="space-y-3">
-                <Label htmlFor="detailed-feedback" className="text-sm font-medium">
+              <div className="space-y-4">
+                <Label htmlFor="detailed-feedback" className="text-sm font-semibold flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-primary" />
                   Additional Comments (Optional)
                 </Label>
                 <Textarea
@@ -283,22 +314,34 @@ const InlineFeedback = ({ isExpanded, onToggle, problemName, difficulty, company
                   value={detailedFeedback}
                   onChange={(e) => setDetailedFeedback(e.target.value)}
                   rows={3}
-                  className="text-sm"
+                  className="text-sm rounded-xl border-2 border-white/20 bg-white/20 dark:bg-black/20 backdrop-blur-sm focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-300"
                 />
               </div>
 
               {/* Submit Button */}
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" onClick={onToggle} size="sm" className="flex-1">
+              <div className="flex gap-3 pt-2">
+                <Button 
+                  variant="outline" 
+                  onClick={onToggle} 
+                  size="sm" 
+                  className="flex-1 rounded-xl border-2 border-white/20 hover:bg-white/10 hover:scale-105 transition-all duration-300 font-semibold"
+                >
                   Cancel
                 </Button>
                 <Button 
                   onClick={handleSubmit} 
                   disabled={isSubmitting}
                   size="sm"
-                  className="flex-1"
+                  className="flex-1 rounded-xl bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 border-2 border-primary/20 font-semibold"
                 >
-                  {isSubmitting ? "Submitting..." : "Submit Feedback"}
+                  {isSubmitting ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      Submitting...
+                    </div>
+                  ) : (
+                    "Submit Feedback"
+                  )}
                 </Button>
               </div>
             </CardContent>
