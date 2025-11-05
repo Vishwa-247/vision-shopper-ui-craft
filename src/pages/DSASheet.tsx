@@ -41,8 +41,8 @@ const DSASheet = () => {
       <Container className="py-12">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
-          <div className="text-center mb-16">
-            <div className="text-left mb-4">
+          <div className="text-center mb-16 relative">
+            <div className="absolute left-0 top-0">
               <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
                 ← Back
               </Button>

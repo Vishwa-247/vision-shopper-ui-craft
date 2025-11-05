@@ -310,9 +310,6 @@ const Dashboard = () => {
     <Container>
       <div className="py-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
-            ← Back
-          </Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
               StudyMate Dashboard
@@ -322,6 +319,9 @@ const Dashboard = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+              ← Back
+            </Button>
             <Button asChild>
               <Link to="/profile-builder">Build Profile</Link>
             </Button>

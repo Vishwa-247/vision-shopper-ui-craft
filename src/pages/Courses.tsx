@@ -158,22 +158,22 @@ const Courses = () => {
       {/* Header */}
       <div className="flex justify-between items-start mb-8">
         <div>
-          <div className="mb-2">
-            <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
-              ← Back
-            </Button>
-          </div>
           <h1 className="text-3xl font-bold tracking-tight mb-2">My Courses</h1>
           <p className="text-muted-foreground">
             Manage and continue your learning journey
           </p>
         </div>
-        <Button asChild>
-          <Link to="/course-generator">
-            <Plus className="w-4 h-4 mr-2" />
-            Create Course
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+            ← Back
+          </Button>
+          <Button asChild>
+            <Link to="/course-generator">
+              <Plus className="w-4 h-4 mr-2" />
+              Create Course
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}

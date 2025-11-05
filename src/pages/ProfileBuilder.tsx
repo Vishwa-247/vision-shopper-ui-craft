@@ -121,11 +121,6 @@ export default function ProfileBuilder() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <div className="mb-3">
-            <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
-              <ChevronLeft className="mr-2 h-4 w-4" /> Back
-            </Button>
-          </div>
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold">Profile Builder</h1>
@@ -134,6 +129,14 @@ export default function ProfileBuilder() {
               </p>
             </div>
             <div className="flex items-center gap-3">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate(-1)}
+                className="px-3 py-1"
+              >
+                <ChevronLeft className="mr-1 h-4 w-4" /> Back
+              </Button>
               <Button 
                 variant="outline" 
                 size="sm"

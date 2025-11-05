@@ -62,11 +62,6 @@ const InterviewResult = () => {
     <Container>
       <div className="py-12">
         <div className="mb-8">
-          <div className="mb-3">
-            <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
-              <ChevronLeft className="mr-2 h-4 w-4" /> Back
-            </Button>
-          </div>
           {loading && (
             <div className="text-sm text-muted-foreground">Loading interview...</div>
           )}
@@ -81,7 +76,12 @@ const InterviewResult = () => {
             <span>•</span>
             <span>{session?.duration ? `${session.duration} minutes` : ''}</span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight mb-3">Interview Result</h1>
+          <div className="flex items-center gap-3 mb-3">
+            <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+              <ChevronLeft className="mr-2 h-4 w-4" /> Back
+            </Button>
+            <h1 className="text-3xl font-bold tracking-tight">Interview Result</h1>
+          </div>
           
           <div className="flex flex-wrap gap-4 mb-6">
             <Badge variant="outline" className="px-3 py-1">

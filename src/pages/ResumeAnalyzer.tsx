@@ -252,9 +252,6 @@ const ResumeAnalyzer = () => {
         <div className="container mx-auto px-4 py-4">
           {/* Enhanced Header with History Toggle */}
           <div className="mb-4 flex items-start justify-between">
-            <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="mr-3">
-              <ArrowLeft className="h-4 w-4 mr-2" /> Back
-            </Button>
             <div className="text-center flex-1">
               <div className="flex items-center justify-center gap-3 mb-2">
                 <div className="relative">
@@ -301,15 +298,20 @@ const ResumeAnalyzer = () => {
               </div>
             </div>
             
-            <Button 
-              variant="outline" 
-              size="lg"
-              onClick={() => setShowHistory(!showHistory)}
-              className="flex items-center gap-2"
-            >
-              <History className="h-5 w-5" />
-              {showHistory ? 'Hide History' : 'Show History'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+                <ArrowLeft className="h-4 w-4 mr-2" /> Back
+              </Button>
+              <Button 
+                variant="outline" 
+                size="lg"
+                onClick={() => setShowHistory(!showHistory)}
+                className="flex items-center gap-2"
+              >
+                <History className="h-5 w-5" />
+                {showHistory ? 'Hide History' : 'Show History'}
+              </Button>
+            </div>
           </div>
 
           <div className="max-w-7xl mx-auto">

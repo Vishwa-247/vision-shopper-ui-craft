@@ -218,15 +218,17 @@ const Settings = () => {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center space-x-4">
-          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
-            <ChevronLeft className="mr-2 h-4 w-4" /> Back
-          </Button>
           <SettingsIcon className="w-8 h-8" />
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
             <p className="text-muted-foreground">
               Manage your account preferences and API configurations
             </p>
+          </div>
+          <div className="ml-auto">
+            <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+              <ChevronLeft className="mr-2 h-4 w-4" /> Back
+            </Button>
           </div>
         </div>
 
