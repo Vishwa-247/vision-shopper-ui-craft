@@ -522,6 +522,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { gatewayAuthService } from "@/api/services/gatewayAuthService";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 const STORAGE_KEY = "mockInterviewState";
 
@@ -594,6 +595,9 @@ const MockInterview = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingComplete, setRecordingComplete] = useState(false);
   const [interviewId, setInterviewId] = useState<string>(persisted?.interviewId || "mock-001");
+  const [pending, setPending] = useState<any[]>([]);
+  const [pendingLoading, setPendingLoading] = useState<boolean>(false);
+
   const [metricsData, setMetricsData] = useState({
     facialData: { confident: 0, stressed: 0, nervous: 0 },
     behaviorData: {
@@ -607,6 +611,29 @@ const MockInterview = () => {
       clarity_score: 0,
     },
   });
+
+  // Load pending interviews from Supabase for current user
+  useEffect(() => {
+    const loadPending = async () => {
+      if (!session?.user?.id) return;
+      setPendingLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('interview_sessions')
+          .select('id, session_type, job_role, questions_data, status, started_at')
+          .eq('user_id', session.user.id)
+          .eq('status', 'active')
+          .order('started_at', { ascending: false });
+        if (error) throw error;
+        setPending(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.warn('Load pending failed:', e);
+      } finally {
+        setPendingLoading(false);
+      }
+    };
+    loadPending();
+  }, [session?.user?.id]);
 
   const handleTypeSelection = (type: string) => {
     setSelectedInterviewType(type);
@@ -688,6 +715,21 @@ const MockInterview = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleResumePending = (row: any) => {
+    const qs = Array.isArray(row?.questions_data?.questions)
+      ? row.questions_data.questions.map((q: any) => q.text || q.question || String(q))
+      : [];
+    if (!qs.length) {
+      toast({ title: 'Resume failed', description: 'No questions found for this session.', variant: 'destructive' });
+      return;
+    }
+    setInterviewId(row.id);
+    setQuestions(qs);
+    setCurrentQuestionIndex(0);
+    setSelectedInterviewType(row.session_type || 'technical');
+    setStage(InterviewStage.Questions);
   };
 
   const handleAnswerSubmitted = () => {
@@ -994,7 +1036,41 @@ const MockInterview = () => {
   };
 
   const renderRecentInterviews = () => {
-    return null; // Removed dummy data
+    if (!session?.user?.id) return null;
+    return (
+      <div className="mt-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xl font-semibold">Your pending interviews</h2>
+          <span className="text-sm text-muted-foreground">{pendingLoading ? 'Loading…' : `${pending.length}`}</span>
+        </div>
+        {pending.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No pending interviews. Create a new one above.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {pending.map((row) => (
+              <Card key={row.id} className="overflow-hidden">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span className="truncate mr-2">{row.job_role || row.session_type}</span>
+                    <span className="text-xs text-muted-foreground uppercase">{row.session_type}</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    {row.started_at ? new Date(row.started_at).toLocaleString() : ''}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="w-full" onClick={() => handleResumePending(row)}>
+                      Resume
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Persist state so refresh does not reset flow
@@ -1027,6 +1103,7 @@ const MockInterview = () => {
             onSelectType={handleTypeSelection}
             selectedType={selectedInterviewType}
           />
+          {renderRecentInterviews()}
         </div>
       )}
 
