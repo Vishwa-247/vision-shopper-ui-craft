@@ -24,6 +24,7 @@ import {
   Upload
 } from 'lucide-react';
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface AnalysisStep {
   id: 'job-role' | 'upload' | 'results';
@@ -244,12 +245,16 @@ const ResumeAnalyzer = () => {
     });
   };
 
+  const navigate = useNavigate();
   return (
     <Layout className="pt-4">
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-4">
           {/* Enhanced Header with History Toggle */}
           <div className="mb-4 flex items-start justify-between">
+            <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="mr-3">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back
+            </Button>
             <div className="text-center flex-1">
               <div className="flex items-center justify-center gap-3 mb-2">
                 <div className="relative">

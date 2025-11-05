@@ -1,6 +1,6 @@
 
-import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,67 +8,43 @@ import Container from "@/components/ui/Container";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { Video, MessageSquare, BarChart, CheckCircle, XCircle, AlertCircle, ArrowRight, BookOpen } from "lucide-react";
+import { Video, MessageSquare, BarChart, CheckCircle, XCircle, AlertCircle, ArrowRight, BookOpen, ChevronLeft } from "lucide-react";
 
 const InterviewResult = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("feedback");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [session, setSession] = useState<any>(null);
+  const [analysis, setAnalysis] = useState<any>(null);
 
-  // Generate mock interview data
-  const interviewData = {
-    title: "Mock Interview Session",
-    date: new Date().toLocaleDateString(),
-    duration: "45 minutes",
-    jobRole: "Software Engineer",
-    techStack: ["React", "Node.js", "TypeScript"],
-    experience: "3-5 years",
-    overallScore: 78,
-    feedback: {
-      technical: {
-        score: 82,
-        strengths: ["Strong coding fundamentals", "Good problem-solving approach"],
-        weaknesses: ["Could explain more complex algorithms better"],
-        summary: "Solid technical knowledge with room for improvement in advanced topics."
-      },
-      communication: {
-        score: 75,
-        strengths: ["Clear articulation", "Good listening skills"],
-        weaknesses: ["Could be more concise in responses"],
-        summary: "Good communication skills overall with minor areas for improvement."
-      },
-      nonVerbal: {
-        score: 72,
-        strengths: ["Maintained good eye contact", "Professional appearance"],
-        weaknesses: ["Some nervous gestures"],
-        summary: "Generally professional presentation with minor confidence improvements needed."
-      }
-    },
-    questions: [
-      {
-        question: "Tell me about your experience with React.",
-        answer: "I have been working with React for 3 years...",
-        feedback: "Good overview, could provide more specific examples.",
-        score: 75
-      }
-    ],
-    videoAnalysis: {
-      confidenceScore: 70,
-      engagementScore: 80,
-      stressIndicators: 25,
-      timeline: [
-        { time: "00:30", note: "Good initial confidence", score: 85 },
-        { time: "05:15", note: "Slight hesitation on technical question", score: 65 }
-      ]
-    },
-        recommendations: [
-          {
-            type: "profile",
-            title: "Complete Profile Builder",
-            reason: "To improve technical depth",
-            link: "/profile-builder" 
+  useEffect(() => {
+    const load = async () => {
+      if (!id) return;
+      try {
+        setLoading(true);
+        setError(null);
+        const resp = await fetch(`http://localhost:8000/interviews/${id}`);
+        if (!resp.ok) throw new Error("Failed to load interview session");
+        const data = await resp.json();
+        setSession(data.interview || data);
+        // Try overall analysis (if already completed)
+        if ((data.interview?.status || data.status) === 'completed') {
+          const a = await fetch(`http://localhost:8000/interviews/${id}/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+          if (a.ok) {
+            const aj = await a.json();
+            setAnalysis(aj.analysis || aj);
           }
-        ]
-  };
+        }
+      } catch (e: any) {
+        setError(e?.message || 'Unable to load interview');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [id]);
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-500";
@@ -86,28 +62,34 @@ const InterviewResult = () => {
     <Container>
       <div className="py-12">
         <div className="mb-8">
+          <div className="mb-3">
+            <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+              <ChevronLeft className="mr-2 h-4 w-4" /> Back
+            </Button>
+          </div>
+          {loading && (
+            <div className="text-sm text-muted-foreground">Loading interview...</div>
+          )}
+          {error && (
+            <div className="text-sm text-red-500">{error}</div>
+          )}
           <div className="flex items-center gap-2 text-muted-foreground mb-2">
             <Video className="h-4 w-4" />
             <span>Interview #{id}</span>
             <span>•</span>
-            <span>{interviewData.date}</span>
+            <span>{session?.start_time ? new Date(session.start_time).toLocaleDateString() : ''}</span>
             <span>•</span>
-            <span>{interviewData.duration}</span>
+            <span>{session?.duration ? `${session.duration} minutes` : ''}</span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight mb-3">{interviewData.title}</h1>
+          <h1 className="text-3xl font-bold tracking-tight mb-3">Interview Result</h1>
           
           <div className="flex flex-wrap gap-4 mb-6">
             <Badge variant="outline" className="px-3 py-1">
-              {interviewData.jobRole}
+              {session?.job_role || '—'}
             </Badge>
-            {interviewData.techStack.map((tech) => (
-              <Badge key={tech} variant="secondary" className="px-3 py-1">
-                {tech}
-              </Badge>
+            {Array.isArray(session?.tech_stack) && session.tech_stack.map((tech: string) => (
+              <Badge key={tech} variant="secondary" className="px-3 py-1">{tech}</Badge>
             ))}
-            <Badge variant="outline" className="px-3 py-1">
-              {interviewData.experience}
-            </Badge>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -119,13 +101,13 @@ const InterviewResult = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <div className={`text-3xl font-bold ${getScoreColor(interviewData.overallScore)}`}>
-                    {interviewData.overallScore}%
+                  <div className={`text-3xl font-bold ${getScoreColor(analysis?.overall_score || 0)}`}>
+                    {Math.round(analysis?.overall_score || 0)}%
                   </div>
-                  {getScoreBadge(interviewData.overallScore)}
+                  {getScoreBadge(Math.round(analysis?.overall_score || 0))}
                 </div>
                 <Progress 
-                  value={interviewData.overallScore} 
+                  value={analysis?.overall_score || 0} 
                   className="h-2 mt-2" 
                 />
               </CardContent>

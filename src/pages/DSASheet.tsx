@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -35,12 +35,18 @@ const DSASheet = () => {
   } = useDSAFilters({ topics: dsaTopics, companies });
 
 
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <Container className="py-12">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="text-center mb-16">
+            <div className="text-left mb-4">
+              <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+                ← Back
+              </Button>
+            </div>
             <h1 className="text-5xl font-bold text-foreground mb-4">
               Ultimate DSA Sheet
             </h1>

@@ -26,6 +26,8 @@ import {
   User
 } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
 
 const sections = [
   { id: 'resume', name: 'Resume Upload', icon: FileText, component: ResumeUpload, description: 'Upload your resume to auto-fill profile data' },
@@ -39,6 +41,7 @@ const sections = [
 ];
 
 export default function ProfileBuilder() {
+  const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { profile, updateProfile, isLoading: profileLoading } = useProfile();
   const [activeSection, setActiveSection] = useState("resume");
@@ -118,6 +121,11 @@ export default function ProfileBuilder() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
+          <div className="mb-3">
+            <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+              <ChevronLeft className="mr-2 h-4 w-4" /> Back
+            </Button>
+          </div>
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold">Profile Builder</h1>

@@ -27,9 +27,10 @@ import {
   Video,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
   const [showChatbot, setShowChatbot] = useState(false);
   const { user } = useAuth();
@@ -309,6 +310,9 @@ const Dashboard = () => {
     <Container>
       <div className="py-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+            ← Back
+          </Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
               StudyMate Dashboard

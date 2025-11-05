@@ -1,4 +1,6 @@
 import Container from "@/components/ui/Container";
+import { useNavigate } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -210,11 +212,15 @@ const Settings = () => {
     );
   }
 
+  const navigate = useNavigate();
   return (
     <Container className="py-8">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center space-x-4">
+          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+            <ChevronLeft className="mr-2 h-4 w-4" /> Back
+          </Button>
           <SettingsIcon className="w-8 h-8" />
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
