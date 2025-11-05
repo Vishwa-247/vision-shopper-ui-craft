@@ -25,6 +25,12 @@ const InterviewCapture: React.FC<Props> = ({
   const [recording, setRecording] = useState(false);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
+  const [recordingTime, setRecordingTime] = useState(0); // seconds
+  const [audioLevel, setAudioLevel] = useState(0);
+  const maxDurationSec = 180;
+  const timerRef = useRef<number | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -74,12 +80,53 @@ const InterviewCapture: React.FC<Props> = ({
     mediaRecorderRef.current = mr;
     setRecording(true);
 
+    // start timer
+    setRecordingTime(0);
+    if (timerRef.current) window.clearInterval(timerRef.current);
+    timerRef.current = window.setInterval(() => {
+      setRecordingTime((t) => {
+        const next = t + 1;
+        if (next >= maxDurationSec) {
+          // auto-stop at limit
+          stopRecording().catch(() => {});
+        }
+        return next;
+      });
+    }, 1000);
+
     if (faceTimerRef.current) window.clearInterval(faceTimerRef.current);
     faceTimerRef.current = window.setInterval(captureFaceFrame, faceIntervalMs);
+
+    // setup audio analyser for level meter
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048;
+      const source = ctx.createMediaStreamSource(audioStream);
+      source.connect(analyser);
+      analyserRef.current = analyser;
+      audioCtxRef.current = ctx;
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(dataArray);
+        const sum = dataArray.reduce((a, b) => a + b, 0);
+        const avg = sum / dataArray.length; // 0-255
+        setAudioLevel(avg);
+        if (recording) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    } catch (e) {
+      // ignore analyser errors
+    }
   };
 
   const stopRecording = async () => {
     setRecording(false);
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       await new Promise<void>((resolve) => {
         mediaRecorderRef.current!.onstop = () => resolve();
@@ -95,6 +142,10 @@ const InterviewCapture: React.FC<Props> = ({
     }
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) wsRef.current.close();
     wsRef.current = null;
+    if (audioCtxRef.current) {
+      try { audioCtxRef.current.close(); } catch {}
+      audioCtxRef.current = null;
+    }
   };
 
   const captureFaceFrame = () => {
@@ -116,6 +167,17 @@ const InterviewCapture: React.FC<Props> = ({
     <div className="space-y-3">
       <div className="rounded border p-2 bg-black">
         <video ref={videoRef} className="max-w-full" muted playsInline />
+      </div>
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <div>
+          Time: {String(Math.floor(recordingTime / 60)).padStart(2,'0')}:{String(recordingTime % 60).padStart(2,'0')} / 03:00
+        </div>
+        <div className="flex items-center gap-2">
+          <span>Mic</span>
+          <div className="h-2 w-24 bg-muted rounded">
+            <div className="h-2 bg-green-500 rounded" style={{ width: `${Math.min(100, Math.round((audioLevel/255)*100))}%` }} />
+          </div>
+        </div>
       </div>
       <div className="flex gap-2">
         {!recording ? (

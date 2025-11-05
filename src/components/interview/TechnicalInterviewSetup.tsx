@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
 interface TechnicalInterviewSetupProps {
-  onSubmit: (role: string, techStack: string, experience: string) => void;
+  onSubmit: (role: string, techStack: string, experience: string, resumeSummary?: string) => void;
   onBack: () => void;
   isLoading?: boolean;
 }
@@ -119,8 +119,21 @@ const TechnicalInterviewSetup = ({ onSubmit, onBack, isLoading }: TechnicalInter
     const defaultRole = role || "Software Engineer";
     const defaultTechStack = techStack || "JavaScript";
     const defaultExperience = experience || "1-3";
-    
-    onSubmit(defaultRole, defaultTechStack, defaultExperience);
+
+    // Build resume summary for backend personalization
+    let resumeSummary = "";
+    if (resumeData?.extracted_text) {
+      resumeSummary = String(resumeData.extracted_text).substring(0, 500);
+    } else if (userProfile) {
+      const skills = Array.isArray(userProfile.skills) ? userProfile.skills.join(', ') : (userProfile.skills || '');
+      resumeSummary = [
+        userProfile.full_name || '',
+        userProfile.headline || '',
+        skills ? `Skills: ${skills}` : ''
+      ].filter(Boolean).join(' - ');
+    }
+
+    onSubmit(defaultRole, defaultTechStack, defaultExperience, resumeSummary);
   };
 
   return (

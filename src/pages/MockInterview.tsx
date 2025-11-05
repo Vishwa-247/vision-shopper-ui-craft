@@ -627,56 +627,76 @@ const MockInterview = () => {
     setSelectedInterviewType(type);
     setStage(InterviewStage.Setup);
   };
-  const handleInterviewSetup = (
+  const handleInterviewSetup = async (
     dataOrRole: any,
     techStack?: string,
-    experience?: string
+    experience?: string,
+    resumeSummary?: string
   ) => {
-    // Support both old 3-param format and new single object format
-    let data = dataOrRole;
-    if (typeof dataOrRole === "string" && techStack && experience) {
-      // Old format: handleInterviewSetup(role, techStack, experience)
-      data = { role: dataOrRole, techStack, experience };
+    setIsLoading(true);
+    try {
+      // normalize incoming data
+      let data = dataOrRole;
+      if (typeof dataOrRole === "string" && techStack && experience) {
+        data = { role: dataOrRole, techStack, experience, resumeSummary };
+      }
+
+      let endpoint = "";
+      let payload: any = {};
+      if (selectedInterviewType === "technical") {
+        endpoint = "http://localhost:8000/interviews/technical/generate";
+        payload = {
+          user_id: "guest-user", // API Gateway will replace via token in production
+          job_role: data.role || "Software Engineer",
+          tech_stack: String(data.techStack || "").split(",").map((s: string) => s.trim()).filter(Boolean),
+          exp_level: data.experience || "1-3",
+          resume_summary: data.resumeSummary || "",
+          total: 5,
+          duration: 30,
+        };
+      } else if (selectedInterviewType === "aptitude") {
+        endpoint = "http://localhost:8000/interviews/generate-aptitude";
+        payload = {
+          user_id: "guest-user",
+          difficulty: data.difficulty || "medium",
+          total: Number(data.questionCount || 15),
+          duration: 45,
+          resume_summary: data.resumeSummary || "",
+        };
+      } else if (selectedInterviewType === "hr") {
+        endpoint = "http://localhost:8000/interviews/generate-hr";
+        payload = {
+          user_id: "guest-user",
+          job_role: data.role || data.industry || "Software Engineer",
+          exp_level: data.experience || data.positionLevel || "1-3",
+          resume_summary: data.resumeSummary || "",
+          total: 8,
+          duration: 30,
+        };
+      }
+
+      const resp = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) throw new Error(`Failed to generate questions (${resp.status})`);
+      const result = await resp.json();
+
+      const returnedQuestions: string[] = (result.questions || []).map((q: any) => q.text || q.question || String(q));
+      if (!returnedQuestions.length) throw new Error("No questions returned");
+
+      setInterviewId(result.session_id || `session-${Date.now()}`);
+      setQuestions(returnedQuestions);
+      setCurrentQuestionIndex(0);
+      toast({ title: "Interview Ready", description: `Generated ${returnedQuestions.length} questions.` });
+      setStage(InterviewStage.Questions);
+    } catch (e: any) {
+      console.error("Question generation failed:", e);
+      toast({ title: "Generation failed", description: e?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
     }
-
-    // Generate a mock interview ID
-    const mockId = `mock-${Date.now()}`;
-    setInterviewId(mockId);
-
-    // Get questions based on role or interview type
-    const role = data.role || selectedInterviewType;
-    const jobType = role.includes("Frontend")
-      ? "Frontend Developer"
-      : role.includes("Backend")
-      ? "Backend Developer"
-      : role.includes("Full")
-      ? "Full Stack Developer"
-      : role.includes("Data")
-      ? "Data Scientist"
-      : role.includes("DevOps")
-      ? "DevOps Engineer"
-      : role.includes("ML")
-      ? "ML Engineer"
-      : role.includes("Cloud")
-      ? "Cloud Architect"
-      : "Default";
-
-    const interviewQuestions =
-      staticQuestions[jobType as keyof typeof staticQuestions] ||
-      staticQuestions["Default"];
-
-    // Set up the questions
-    setQuestions(interviewQuestions);
-    setCurrentQuestionIndex(0);
-
-    // Update UI
-    toast({
-      title: "Interview Created",
-      description: "Your mock interview has been set up successfully.",
-    });
-
-    setIsLoading(false);
-    setStage(InterviewStage.Questions);
   };
 
   const handleAnswerSubmitted = () => {
@@ -961,7 +981,19 @@ const MockInterview = () => {
                       method: 'POST',
                       body: fd,
                     });
-                    await resp.json();
+                    const data = await resp.json();
+                    if (data?.analysis) {
+                      // If backend returns analysis fields in future, update metrics here
+                      // Placeholder: only assign when provided; no dummy values
+                      setMetricsData(prev => ({
+                        ...prev,
+                        communicationData: {
+                          filler_word_count: Number(data.analysis.filler_word_count ?? prev.communicationData.filler_word_count),
+                          words_per_minute: Number(data.analysis.words_per_minute ?? prev.communicationData.words_per_minute),
+                          clarity_score: Number(data.analysis.clarity_score ?? prev.communicationData.clarity_score),
+                        }
+                      }));
+                    }
                     setRecordingComplete(true);
                   } catch (err) {
                     console.error('Submit answer failed:', err);
