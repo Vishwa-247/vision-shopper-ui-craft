@@ -10,9 +10,10 @@ import os
 import json
 import logging
 import asyncio
+import re
 from datetime import datetime
 from typing import Dict, List, Optional
-import base64
+from collections import deque
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -42,12 +43,77 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# API Keys from environment
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# API Keys from environment - Support multiple Gemini keys for load balancing
+GEMINI_API_KEYS = [
+    os.getenv("GEMINI_API_KEY_1") or os.getenv("GEMINI_API_KEY"),
+    os.getenv("GEMINI_API_KEY_2"),
+    os.getenv("GEMINI_API_KEY_3"),
+]
+# Remove None values
+GEMINI_API_KEYS = [k for k in GEMINI_API_KEYS if k]
+if not GEMINI_API_KEYS:
+    GEMINI_API_KEYS = [os.getenv("GEMINI_API_KEY")] if os.getenv("GEMINI_API_KEY") else []
+
+# Round-robin API key queue
+api_key_queue = deque(GEMINI_API_KEYS) if GEMINI_API_KEYS else deque()
+
+# Concurrency control - limit to 3 concurrent Gemini calls
+GEMINI_SEMAPHORE = asyncio.Semaphore(3)
+
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 BRAVE_API_KEY = os.getenv("BRAVE_SEARCH_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+def get_next_api_key() -> str:
+    """Round-robin API key selection"""
+    if not api_key_queue:
+        raise Exception("No Gemini API keys configured")
+    key = api_key_queue[0]
+    api_key_queue.rotate(-1)  # Move to back of queue
+    return key
+
+async def call_gemini_with_retry(prompt: str, max_retries: int = 3) -> dict:
+    """Call Gemini with retry, key rotation, and concurrency control"""
+    async with GEMINI_SEMAPHORE:  # Limit concurrent calls
+        for attempt in range(max_retries):
+            try:
+                api_key = get_next_api_key()
+                # Add small delay between attempts to avoid bursts
+                if attempt > 0:
+                    wait_time = 2 ** attempt  # Exponential backoff: 2s, 4s, 8s
+                    logger.warning(f"Rate limited, retrying in {wait_time}s...")
+                    await asyncio.sleep(wait_time)
+                
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(
+                        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={api_key}",
+                        json={
+                            "contents": [{
+                                "parts": [{"text": prompt}]
+                            }]
+                        }
+                    )
+                    
+                    if response.status_code == 429:
+                        # Rate limited - try next key or retry
+                        if attempt < max_retries - 1:
+                            continue
+                        raise HTTPException(status_code=429, detail="Gemini API rate limit exceeded")
+                    
+                    response.raise_for_status()
+                    return response.json()
+                    
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 429 and attempt < max_retries - 1:
+                    continue
+                raise
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    continue
+                raise
+    
+    raise Exception("Max retries exceeded for Gemini API")
 
 # Models
 class CourseGenerationRequest(BaseModel):
@@ -59,7 +125,8 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "course-generation",
-        "has_gemini": bool(GEMINI_API_KEY),
+        "has_gemini": len(GEMINI_API_KEYS) > 0,
+        "gemini_key_count": len(GEMINI_API_KEYS),
         "has_elevenlabs": bool(ELEVENLABS_API_KEY),
         "has_brave": bool(BRAVE_API_KEY)
     }
@@ -68,7 +135,7 @@ async def health_check():
 async def generate_course_parallel(request: CourseGenerationRequest, background_tasks: BackgroundTasks):
     """Generate course with parallel AI agents"""
     
-    if not GEMINI_API_KEY:
+    if not GEMINI_API_KEYS:
         raise HTTPException(status_code=500, detail="Gemini API key not configured")
     
     try:
@@ -308,91 +375,106 @@ async def generate_in_parallel(course_id: str, topic: str, user_id: str):
         await mark_job_failed(course_id, str(e))
 
 async def generate_outline(topic: str) -> dict:
-    """Generate course outline - 4 chapters for speed"""
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}",
-            json={
-                "contents": [{
-                    "parts": [{
-                        "text": f"""Create a concise course outline for: "{topic}"
+    """Generate course outline - 5-7 chapters based on complexity"""
+    prompt = f"""Create a detailed course outline for: "{topic}"
 
-Generate EXACTLY 4 chapters:
-- Chapter 1: Basic (fundamentals)
-- Chapter 2: Intermediate (core concepts) 
-- Chapter 3: Intermediate (applications)
-- Chapter 4: Advanced (complex topics)
+Generate 5-7 chapters based on topic complexity:
+- Chapter 1: Introduction & Fundamentals (basic)
+- Chapter 2: Core Concepts (intermediate)
+- Chapter 3: Practical Applications (intermediate)
+- Chapter 4: Advanced Techniques (advanced)
+- Chapter 5: Real-world Projects (advanced)
+- Chapter 6 (optional): Best Practices & Optimization (expert)
+- Chapter 7 (optional): Future Trends & Next Steps (expert)
 
 Return JSON:
 {{
   "chapters": [
     {{
       "title": "string",
-      "level": "basic|intermediate|advanced",
-      "objectives": ["obj1", "obj2"],
-      "keyConcepts": ["concept1", "concept2"],
-      "estimatedMinutes": 10
+      "level": "basic|intermediate|advanced|expert",
+      "objectives": ["obj1", "obj2", "obj3"],
+      "keyConcepts": ["concept1", "concept2", "concept3"],
+      "estimatedMinutes": 15
     }}
   ]
-}}"""
-                    }]
-                }]
-            }
-        )
+}}
+
+Generate at least 5 chapters, up to 7 if the topic is complex. Return ONLY valid JSON."""
+    
+    data = await call_gemini_with_retry(prompt)
+    text = data["candidates"][0]["content"]["parts"][0]["text"]
+    
+    # Extract JSON
+    json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL) or re.search(r'\{.*\}', text, re.DOTALL)
+    if json_match:
+        outline = json.loads(json_match.group(1) if json_match.lastindex else json_match.group(0))
         
-        data = response.json()
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
+        # Ensure minimum 5 chapters
+        if len(outline.get('chapters', [])) < 5:
+            logger.warning(f"Only {len(outline['chapters'])} chapters generated, requesting more...")
+            # Retry with explicit requirement
+            retry_prompt = f"""Create a course outline for: "{topic}" with EXACTLY 5-7 chapters. Return JSON: {{"chapters": [{{"title": "string", "level": "basic|intermediate|advanced|expert", "objectives": ["obj1"], "keyConcepts": ["concept1"], "estimatedMinutes": 15}}]}}"""
+            retry_data = await call_gemini_with_retry(retry_prompt)
+            retry_text = retry_data["candidates"][0]["content"]["parts"][0]["text"]
+            retry_match = re.search(r'```json\n(.*?)\n```', retry_text, re.DOTALL) or re.search(r'\{.*\}', retry_text, re.DOTALL)
+            if retry_match:
+                outline = json.loads(retry_match.group(1) if retry_match.lastindex else retry_match.group(0))
         
-        # Extract JSON
-        import re
-        json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL) or re.search(r'\{.*\}', text, re.DOTALL)
-        if json_match:
-            return json.loads(json_match.group(1) if json_match.lastindex else json_match.group(0))
-        return json.loads(text)
+        return outline
+    
+    return json.loads(text)
 
 async def generate_chapters(course_id: str, topic: str, outline: dict) -> list:
-    """Generate chapter content with code examples, tables, and images"""
+    """Generate chapter content in HTML format with code examples, tables"""
     chapters = []
     
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        for i, chapter in enumerate(outline["chapters"]):
-            level = chapter.get('level', 'intermediate')
-            
-            prompt = f"""Write concise chapter for:
+    for i, chapter in enumerate(outline["chapters"]):
+        level = chapter.get('level', 'intermediate')
+        
+        prompt = f"""Write a concise chapter for:
 
 Topic: {topic}
 Chapter: {chapter['title']}
 Level: {level}
 
-Requirements (300-400 words):
-1. Intro (1-2 paragraphs)
-2. Key concepts with 1-2 SHORT code examples if technical
-3. 1 comparison table if relevant
-4. Summary
+REQUIREMENTS (400-600 words):
+1. Intro (1-2 paragraphs in <p> tags)
+2. Key concepts with 1-2 SHORT code examples in <code>code here</code>
+3. One comparison table using <table><tr><th>...</th></tr><tr><td>...</td></tr></table>
+4. Summary in <p> tags
 
-Use markdown. Keep it brief and practical."""
+OUTPUT FORMAT: Pure HTML only. Use these tags:
+- <h2>Subheading</h2>
+- <p>Paragraph text</p>
+- <strong>Bold text</strong>
+- <em>Italic text</em>
+- <ul><li>List item</li></ul>
+- <code>code here</code>
+- <table><tr><th>Header</th></tr><tr><td>Data</td></tr></table>
 
-            response = await client.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}",
-                json={
-                    "contents": [{
-                        "parts": [{
-                            "text": prompt
-                        }]
-                    }]
-                }
-            )
-            
-            data = response.json()
-            content = data["candidates"][0]["content"]["parts"][0]["text"]
-            
-            chapters.append({
-                "course_id": course_id,
-                "title": chapter["title"],
-                "content": content,
-                "order_number": i + 1,
-                "estimated_reading_time": chapter.get("estimatedMinutes", 10)
-            })
+DO NOT USE:
+- Markdown syntax (**text**, ##, ```, *)
+- Any text outside HTML tags
+- Speaker labels or meta-text
+
+Keep it brief and practical. Return ONLY HTML, no markdown."""
+
+        data = await call_gemini_with_retry(prompt)
+        content = data["candidates"][0]["content"]["parts"][0]["text"]
+        
+        # Clean any remaining markdown artifacts
+        content = content.replace('```html', '').replace('```', '').replace('**', '').strip()
+        # Remove any markdown headers if present
+        content = re.sub(r'^#+\s+', '', content, flags=re.MULTILINE)
+        
+        chapters.append({
+            "course_id": course_id,
+            "title": chapter["title"],
+            "content": content,  # Now pure HTML
+            "order_number": i + 1,
+            "estimated_reading_time": chapter.get("estimatedMinutes", 10)
+        })
     
     # Insert chapters
     await insert_to_supabase("course_chapters", chapters)
@@ -400,124 +482,89 @@ Use markdown. Keep it brief and practical."""
 
 async def generate_flashcards(course_id: str, topic: str) -> list:
     """Generate flashcards"""
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}",
-            json={
-                "contents": [{
-                    "parts": [{
-                        "text": f"Generate 10 flashcards for: {topic}. Format as JSON: [{{'question': 'string', 'answer': 'string'}}]"
-                    }]
-                }]
-            }
-        )
-        
-        data = response.json()
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
-        
-        import re
-        json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL) or re.search(r'\[.*\]', text, re.DOTALL)
-        flashcards_data = json.loads(json_match.group(1) if json_match.lastindex else json_match.group(0))
-        
-        flashcards = [
-            {"course_id": course_id, "question": f["question"], "answer": f["answer"], "difficulty": "medium"}
-            for f in flashcards_data
-        ]
-        
-        await insert_to_supabase("course_flashcards", flashcards)
-        return flashcards
+    prompt = f"Generate 10 flashcards for: {topic}. Format as JSON: [{{'question': 'string', 'answer': 'string'}}]"
+    data = await call_gemini_with_retry(prompt)
+    text = data["candidates"][0]["content"]["parts"][0]["text"]
+    
+    json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL) or re.search(r'\[.*\]', text, re.DOTALL)
+    flashcards_data = json.loads(json_match.group(1) if json_match.lastindex else json_match.group(0))
+    
+    flashcards = [
+        {"course_id": course_id, "question": f["question"], "answer": f["answer"], "difficulty": "medium"}
+        for f in flashcards_data
+    ]
+    
+    await insert_to_supabase("course_flashcards", flashcards)
+    return flashcards
 
 async def generate_mcqs(course_id: str, topic: str) -> list:
     """Generate MCQs"""
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}",
-            json={
-                "contents": [{
-                    "parts": [{
-                        "text": f"Generate 10 MCQs for: {topic}. Format as JSON: [{{'question': 'string', 'options': ['A', 'B', 'C', 'D'], 'correct': 'A', 'explanation': 'string'}}]"
-                    }]
-                }]
-            }
-        )
-        
-        data = response.json()
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
-        
-        import re
-        json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL) or re.search(r'\[.*\]', text, re.DOTALL)
-        mcqs_data = json.loads(json_match.group(1) if json_match.lastindex else json_match.group(0))
-        
-        mcqs = [
-            {
-                "course_id": course_id,
-                "question": m["question"],
-                "options": m["options"],
-                "correct_answer": m["correct"],
-                "explanation": m["explanation"],
-                "difficulty": "medium"
-            }
-            for m in mcqs_data
-        ]
-        
-        await insert_to_supabase("course_mcqs", mcqs)
-        return mcqs
+    prompt = f"Generate 10 MCQs for: {topic}. Format as JSON: [{{'question': 'string', 'options': ['A', 'B', 'C', 'D'], 'correct': 'A', 'explanation': 'string'}}]"
+    data = await call_gemini_with_retry(prompt)
+    text = data["candidates"][0]["content"]["parts"][0]["text"]
+    
+    json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL) or re.search(r'\[.*\]', text, re.DOTALL)
+    mcqs_data = json.loads(json_match.group(1) if json_match.lastindex else json_match.group(0))
+    
+    mcqs = [
+        {
+            "course_id": course_id,
+            "question": m["question"],
+            "options": m["options"],
+            "correct_answer": m["correct"],
+            "explanation": m["explanation"],
+            "difficulty": "medium"
+        }
+        for m in mcqs_data
+    ]
+    
+    await insert_to_supabase("course_mcqs", mcqs)
+    return mcqs
 
 async def generate_articles(course_id: str, topic: str) -> dict:
-    """Generate articles"""
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        # Deep dive
-        deep_dive_resp = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}",
-            json={"contents": [{"parts": [{"text": f"Write 800-1000 word deep-dive article on: {topic}"}]}]}
-        )
-        deep_dive = deep_dive_resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-        
-        # Key takeaways
-        takeaways_resp = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}",
-            json={"contents": [{"parts": [{"text": f"Summarize key takeaways for: {topic} in 5-7 bullet points"}]}]}
-        )
-        takeaways = takeaways_resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-        
-        # FAQ
-        faq_resp = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}",
-            json={"contents": [{"parts": [{"text": f"Generate 8-10 FAQ for: {topic}. Format as JSON: [{{'question': 'string', 'answer': 'string'}}]"}]}]}
-        )
-        faq_text = faq_resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-        
-        import re
-        json_match = re.search(r'```json\n(.*?)\n```', faq_text, re.DOTALL) or re.search(r'\[.*\]', faq_text, re.DOTALL)
-        faq = json.loads(json_match.group(1) if json_match.lastindex else json_match.group(0))
-        
-        articles = [
-            {"course_id": course_id, "article_type": "deep_dive", "title": f"Deep Dive: {topic}", "content": deep_dive, "reading_time_minutes": 10},
-            {"course_id": course_id, "article_type": "key_takeaways", "title": f"Key Takeaways: {topic}", "content": takeaways, "reading_time_minutes": 3},
-            {"course_id": course_id, "article_type": "faq", "title": f"FAQ: {topic}", "content": json.dumps(faq), "reading_time_minutes": 5}
-        ]
-        
-        await insert_to_supabase("course_articles", articles)
-        return {"deep_dive": deep_dive, "takeaways": takeaways, "faq": faq}
+    """Generate articles in HTML format"""
+    # Deep dive - HTML format
+    deep_dive_prompt = f"""Write an 800-1000 word deep-dive article on: {topic}
+
+Use ONLY HTML tags: <h2>, <p>, <strong>, <em>, <ul>, <li>, <code>, <table>
+No markdown syntax allowed.
+Include 2-3 code examples in <code> tags."""
+    
+    deep_dive_data = await call_gemini_with_retry(deep_dive_prompt)
+    deep_dive = deep_dive_data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    # Clean markdown artifacts
+    deep_dive = deep_dive.replace('```html', '').replace('```', '').replace('**', '').strip()
+    
+    # Key takeaways - HTML format
+    takeaways_prompt = f"""Summarize key takeaways for: {topic} in 5-7 bullet points. Use HTML: <ul><li>Point 1</li><li>Point 2</li></ul>"""
+    takeaways_data = await call_gemini_with_retry(takeaways_prompt)
+    takeaways = takeaways_data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    takeaways = takeaways.replace('```html', '').replace('```', '').replace('**', '').strip()
+    
+    # FAQ
+    faq_prompt = f"Generate 8-10 FAQ for: {topic}. Format as JSON: [{{'question': 'string', 'answer': 'string'}}]"
+    faq_data = await call_gemini_with_retry(faq_prompt)
+    faq_text = faq_data["candidates"][0]["content"]["parts"][0]["text"]
+    
+    json_match = re.search(r'```json\n(.*?)\n```', faq_text, re.DOTALL) or re.search(r'\[.*\]', faq_text, re.DOTALL)
+    faq = json.loads(json_match.group(1) if json_match.lastindex else json_match.group(0))
+    
+    articles = [
+        {"course_id": course_id, "article_type": "deep_dive", "title": f"Deep Dive: {topic}", "content": deep_dive, "reading_time_minutes": 10},
+        {"course_id": course_id, "article_type": "key_takeaways", "title": f"Key Takeaways: {topic}", "content": takeaways, "reading_time_minutes": 3},
+        {"course_id": course_id, "article_type": "faq", "title": f"FAQ: {topic}", "content": json.dumps(faq), "reading_time_minutes": 5}
+    ]
+    
+    await insert_to_supabase("course_articles", articles)
+    return {"deep_dive": deep_dive, "takeaways": takeaways, "faq": faq}
 
 async def generate_word_games(course_id: str, topic: str) -> list:
-    """Generate word games"""
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}",
-            json={
-                "contents": [{
-                    "parts": [{
-                        "text": f"Generate 15 vocabulary words for: {topic}. Format as JSON: [{{'word': 'string', 'correct': 'string', 'incorrect': ['string', 'string', 'string']}}]"
-                    }]
-                }]
-            }
-        )
-        
-        data = response.json()
+    """Generate word games - skip if table doesn't exist"""
+    try:
+        prompt = f"Generate 15 vocabulary words for: {topic}. Format as JSON: [{{'word': 'string', 'correct': 'string', 'incorrect': ['string', 'string', 'string']}}]"
+        data = await call_gemini_with_retry(prompt)
         text = data["candidates"][0]["content"]["parts"][0]["text"]
         
-        import re
         json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL) or re.search(r'\[.*\]', text, re.DOTALL)
         words_data = json.loads(json_match.group(1) if json_match.lastindex else json_match.group(0))
         
@@ -528,38 +575,55 @@ async def generate_word_games(course_id: str, topic: str) -> list:
         
         await insert_to_supabase("course_word_games", words)
         return words
+    except Exception as e:
+        logger.warning(f"Word games table not found or error occurred, skipping: {e}")
+        return []  # Return empty list instead of failing
 
 async def generate_audio_scripts(topic: str, outline: dict) -> dict:
     """Generate audio scripts"""
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        # Short script
-        short_resp = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}",
-            json={"contents": [{"parts": [{"text": f"Write 5-minute conversational podcast script introducing: {topic}. ~700 words. No speaker labels."}]}]}
-        )
-        short_script = short_resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-        
-        # Long script
-        long_resp = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}",
-            json={"contents": [{"parts": [{"text": f"Write 20-minute educational lecture on: {topic}. ~3000 words. No speaker labels."}]}]}
-        )
-        long_script = long_resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-        
-        return {"short": short_script, "long": long_script}
+    # Short script
+    short_prompt = f"Write 5-minute conversational podcast script introducing: {topic}. ~700 words. No speaker labels."
+    short_data = await call_gemini_with_retry(short_prompt)
+    short_script = short_data["candidates"][0]["content"]["parts"][0]["text"]
+    
+    # Long script
+    long_prompt = f"Write 20-minute educational lecture on: {topic}. ~3000 words. No speaker labels."
+    long_data = await call_gemini_with_retry(long_prompt)
+    long_script = long_data["candidates"][0]["content"]["parts"][0]["text"]
+    
+    return {"short": short_script, "long": long_script}
 
 async def generate_tts(course_id: str, script: str, audio_type: str):
     """Generate TTS audio"""
-    if not ELEVENLABS_API_KEY or not script:
+    if not ELEVENLABS_API_KEY:
+        logger.info("ElevenLabs API key not configured, skipping TTS")
+        return
+    
+    if not script or len(script.strip()) < 50:
+        logger.warning("Script too short for TTS")
         return
     
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 "https://api.elevenlabs.io/v1/text-to-speech/9BWtsMINqrJLrRacOk9x",
-                headers={"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"},
-                json={"text": script[:5000], "model_id": "eleven_turbo_v2_5", "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}}
+                headers={
+                    "xi-api-key": ELEVENLABS_API_KEY,
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "text": script[:5000],
+                    "model_id": "eleven_turbo_v2_5",
+                    "voice_settings": {
+                        "stability": 0.5,
+                        "similarity_boost": 0.75
+                    }
+                }
             )
+            
+            if response.status_code == 401:
+                logger.error("Invalid ElevenLabs API key - check your .env file")
+                return
             
             if response.status_code == 200:
                 audio_data = response.content
@@ -576,6 +640,8 @@ async def generate_tts(course_id: str, script: str, audio_type: str):
                 }])
                 
                 logger.info(f"✅ Generated {audio_type} audio")
+            else:
+                logger.warning(f"TTS generation failed with status {response.status_code}: {response.text[:200]}")
     except Exception as e:
         logger.error(f"TTS error: {e}")
 
@@ -613,25 +679,19 @@ async def find_resources(course_id: str, topic: str):
 
 async def generate_suggestions(course_id: str, topic: str):
     """Generate continue learning suggestions"""
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}",
-            json={"contents": [{"parts": [{"text": f"Suggest 5 related topics after learning {topic}. Format as JSON: [{{'topic': 'string', 'description': 'string'}}]"}]}]}
-        )
-        
-        data = response.json()
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
-        
-        import re
-        json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL) or re.search(r'\[.*\]', text, re.DOTALL)
-        suggestions_data = json.loads(json_match.group(1) if json_match.lastindex else json_match.group(0))
-        
-        suggestions = [
-            {"course_id": course_id, "suggestion_topic": s["topic"], "suggestion_description": s["description"], "relevance_score": 5 - i}
-            for i, s in enumerate(suggestions_data)
-        ]
-        
-        await insert_to_supabase("course_suggestions", suggestions)
+    prompt = f"Suggest 5 related topics after learning {topic}. Format as JSON: [{{'topic': 'string', 'description': 'string'}}]"
+    data = await call_gemini_with_retry(prompt)
+    text = data["candidates"][0]["content"]["parts"][0]["text"]
+    
+    json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL) or re.search(r'\[.*\]', text, re.DOTALL)
+    suggestions_data = json.loads(json_match.group(1) if json_match.lastindex else json_match.group(0))
+    
+    suggestions = [
+        {"course_id": course_id, "suggestion_topic": s["topic"], "suggestion_description": s["description"], "relevance_score": 5 - i}
+        for i, s in enumerate(suggestions_data)
+    ]
+    
+    await insert_to_supabase("course_suggestions", suggestions)
 
 # Utility functions
 async def insert_to_supabase(table: str, data: list):

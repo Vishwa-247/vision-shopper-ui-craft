@@ -55,6 +55,24 @@ const CodeBlock = ({ language, value }: { language: string; value: string }) => 
 };
 
 export const ContentRenderer = ({ content }: ContentRendererProps) => {
+  // Check if content is HTML (starts with < or contains HTML tags)
+  const isHTML = content.trim().startsWith('<') || /^<[a-z][\s\S]*>/.test(content.trim());
+  
+  if (isHTML) {
+    // Render HTML directly with proper styling
+    return (
+      <div 
+        className="prose prose-slate dark:prose-invert max-w-none"
+        dangerouslySetInnerHTML={{ __html: content }}
+        style={{
+          // Ensure code blocks are styled
+          '--code-bg': 'rgb(17 24 39)',
+        }}
+      />
+    );
+  }
+  
+  // Fallback to markdown for old content
   return (
     <div className="prose prose-slate dark:prose-invert max-w-none">
       <ReactMarkdown
