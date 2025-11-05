@@ -56,5 +56,3 @@ async def transcribe_audio(audio_blob: bytes, content_type: Optional[str] = None
         return await transcribe_audio_deepgram(audio_blob, content_type or "audio/webm")
     except Exception:
         return await transcribe_audio_groq(audio_blob, content_type or "audio/webm")
-
-
