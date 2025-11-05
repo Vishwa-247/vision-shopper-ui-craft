@@ -26,6 +26,14 @@ if not exist ".env" (
 echo ✅ Starting services...
 echo.
 
+REM Ensure pip is up to date and PyTorch CPU is installed for emotion service
+echo 🔧 Ensuring pip and PyTorch (CPU) are installed...
+python -m pip install --upgrade pip -q
+REM Install CPU-only PyTorch wheels from official index to avoid CUDA downloads
+python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu -q
+REM In case opencv/numpy/scipy are missing for emotion service, ensure they exist
+python -m pip install opencv-python numpy scipy -q
+
 REM Start each service in a new window
 start "API Gateway" cmd /k "cd /d %~dp0\..\..\api-gateway && ..\venv\Scripts\activate && python main.py"
 timeout /t 2 /nobreak >nul
