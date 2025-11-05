@@ -228,6 +228,16 @@ async def generate_technical(interview_data: dict, user_id: str = Depends(verify
     interview_data["user_id"] = user_id
     return await forward_to_agent("interview-coach", "/generate-technical", "POST", interview_data)
 
+@app.post("/interviews/generate-aptitude")
+async def generate_aptitude(interview_data: dict, user_id: str = Depends(verify_token)):
+    interview_data["user_id"] = user_id
+    return await forward_to_agent("interview-coach", "/generate-aptitude", "POST", interview_data)
+
+@app.post("/interviews/generate-hr")
+async def generate_hr(interview_data: dict, user_id: str = Depends(verify_token)):
+    interview_data["user_id"] = user_id
+    return await forward_to_agent("interview-coach", "/generate-hr", "POST", interview_data)
+
 # Chat Routes
 @app.post("/chat/message")
 async def send_message(message_data: dict, user_id: str = Depends(verify_token)):

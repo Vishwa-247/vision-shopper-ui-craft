@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Optional
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -57,6 +57,18 @@ app.add_middleware(
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_API_KEY_TECHNICAL = os.getenv("GROQ_API_KEY_TECHNICAL") or os.getenv("GROQ_API_KEY")
+GROQ_API_KEY_APTITUDE = os.getenv("GROQ_API_KEY_APTITUDE") or os.getenv("GROQ_APTITUDE_API_KEY") or os.getenv("GROQ_API_KEY")
+GROQ_API_KEY_HR = os.getenv("GROQ_API_KEY_HR") or os.getenv("GROQ_HR_API_KEY") or os.getenv("GROQ_API_KEY")
+
+# Optional Supabase client
+try:
+    from supabase import create_client, Client  # type: ignore
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    supabase: Optional[Client] = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
+except Exception:
+    supabase = None
 
 # Pydantic models
 class InterviewStartRequest(BaseModel):
@@ -275,27 +287,62 @@ async def get_interview(interview_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/interviews/{interview_id}/answer")
-async def submit_answer(interview_id: str, response: QuestionResponse):
+async def submit_answer(
+    interview_id: str,
+    request: Request,
+    # multipart fields (optional)
+    audio: UploadFile | None = None,
+    question_id: Optional[int] = None,
+    # json fallback
+    response: Optional[QuestionResponse] = None,
+):
     """Submit an answer to the current question."""
     try:
         if interview_id not in interview_sessions:
             raise HTTPException(status_code=404, detail="Interview not found")
         
         session = interview_sessions[interview_id]
-        
+        user_answer_text = None
+
+        content_type = request.headers.get("content-type", "")
+        if "multipart/form-data" in content_type and audio is not None:
+            # Transcribe audio
+            try:
+                from .transcription import transcribe_audio  # lazy import within service
+                audio_bytes = await audio.read()
+                user_answer_text = await transcribe_audio(audio_bytes, audio.content_type)
+            except Exception as e:
+                logger.warning(f"Transcription failed: {e}")
+                user_answer_text = ""
+        elif response is not None:
+            user_answer_text = response.answer
+        else:
+            # Try parse JSON body if provided
+            try:
+                data = await request.json()
+                user_answer_text = data.get("answer", "")
+            except Exception:
+                user_answer_text = ""
+
+        if user_answer_text is None:
+            user_answer_text = ""
+
+        current_idx = session.get("current_question", 0) if question_id is None else int(question_id)
+
         # Analyze the answer (simplified)
         feedback = analyze_answer(
-            session["questions"][session["current_question"]],
-            response.answer
+            session["questions"][current_idx],
+            user_answer_text
         )
         
         # Update session with answer and feedback
-        session["questions"][session["current_question"]]["answer"] = response.answer
-        session["questions"][session["current_question"]]["feedback"] = feedback
-        session["questions"][session["current_question"]]["thinking_time"] = response.thinking_time
+        session["questions"][current_idx]["answer"] = user_answer_text
+        if response is not None and response.thinking_time is not None:
+            session["questions"][current_idx]["thinking_time"] = response.thinking_time
+        session["questions"][current_idx]["feedback"] = feedback
         
         # Move to next question
-        session["current_question"] += 1
+        session["current_question"] = current_idx + 1
         
         # Check if interview is complete
         if session["current_question"] >= len(session["questions"]):
@@ -303,6 +350,20 @@ async def submit_answer(interview_id: str, response: QuestionResponse):
             session["end_time"] = datetime.utcnow().isoformat()
         
         interview_sessions[interview_id] = session
+
+        # Persist response (best-effort)
+        if supabase:
+            try:
+                supabase.table("interview_responses").insert({
+                    "session_id": interview_id,
+                    "user_id": session.get("user_id"),
+                    "question_index": current_idx,
+                    "question_text": session["questions"][current_idx].get("question") or session["questions"][current_idx].get("text"),
+                    "response_text": user_answer_text,
+                    "ai_analysis": feedback,
+                }).execute()
+            except Exception as e:
+                logger.warning(f"Supabase insert response failed: {e}")
         
         next_question = None
         if session["current_question"] < len(session["questions"]):
@@ -482,9 +543,10 @@ async def _call_gemini(prompt: str, timeout: float = 8.0) -> Dict[str, Any]:
         except Exception:
             return {"questions": []}
 
-async def _call_groq(prompt: str, timeout: float = 6.0) -> Dict[str, Any]:
+async def _call_groq(prompt: str, timeout: float = 6.0, api_key: Optional[str] = None) -> Dict[str, Any]:
     import httpx
-    headers = {"Authorization": f"Bearer {GROQ_API_KEY or ''}", "Content-Type": "application/json"}
+    key = api_key or (GROQ_API_KEY or "")
+    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
     body = {
         "model": "llama-3.3-70b-versatile",
         "messages": [
@@ -522,6 +584,40 @@ def _default_questions(payload: Dict[str, Any]) -> Dict[str, Any]:
         })
     return {"questions": normalized}
 
+# Fallbacks for aptitude and HR
+def _default_questions_aptitude(difficulty: str, total: int) -> Dict[str, Any]:
+    pool = []
+    for level in [difficulty, "medium", "easy"]:
+        pool.extend(question_bank.get("aptitude", {}).get(level, []))
+    qs = pool[:max(1, total)]
+    normalized = []
+    for i, q in enumerate(qs, start=1):
+        normalized.append({
+            "id": q.get("id", f"apt_{i:03d}"),
+            "text": q.get("question", ""),
+            "category": q.get("category", "general"),
+            "difficulty": q.get("difficulty", difficulty),
+            "answer": q.get("answer", None),
+            "explanation": q.get("explanation", None),
+        })
+    return {"questions": normalized}
+
+def _default_questions_hr(total: int) -> Dict[str, Any]:
+    pool = []
+    for level in ["medium", "easy", "hard"]:
+        pool.extend(question_bank.get("hr", {}).get(level, []))
+    qs = pool[:max(1, total)]
+    normalized = []
+    for i, q in enumerate(qs, start=1):
+        normalized.append({
+            "id": q.get("id", f"hr_{i:03d}"),
+            "text": q.get("question", ""),
+            "category": q.get("category", "behavioral"),
+            "difficulty": q.get("difficulty", "medium"),
+            "star_points": ["Situation","Task","Action","Result"],
+        })
+    return {"questions": normalized}
+
 @app.post("/generate-technical")
 async def generate_technical(payload: Dict[str, Any]):
     try:
@@ -538,7 +634,7 @@ async def generate_technical(payload: Dict[str, Any]):
         if not result.get("questions") and GROQ_API_KEY:
             source = "groq"
             try:
-                result = await _call_groq(prompt, timeout=6.0)
+                result = await _call_groq(prompt, timeout=6.0, api_key=GROQ_API_KEY_TECHNICAL)
             except Exception as e:
                 logger.warning(f"Groq QG failed: {e}")
                 result = {"questions": []}
@@ -548,7 +644,7 @@ async def generate_technical(payload: Dict[str, Any]):
 
         # Create session
         session_id = str(uuid.uuid4())
-        interview_sessions[session_id] = {
+        session_obj = {
             "id": session_id,
             "user_id": payload.get("user_id", "demo"),
             "interview_type": "technical",
@@ -560,10 +656,145 @@ async def generate_technical(payload: Dict[str, Any]):
             "start_time": datetime.utcnow().isoformat(),
             "duration": payload.get("duration", 30),
         }
+        interview_sessions[session_id] = session_obj
+
+        # Persist to Supabase if available
+        if supabase:
+            try:
+                supabase.table("interview_sessions").insert({
+                    "id": session_id,
+                    "user_id": session_obj["user_id"],
+                    "session_type": "technical",
+                    "job_role": session_obj["job_role"],
+                    "difficulty": session_obj["difficulty"],
+                    "questions_data": {"questions": session_obj["questions"]},
+                    "status": "active",
+                    "started_at": datetime.utcnow().isoformat(),
+                }).execute()
+            except Exception as e:
+                logger.warning(f"Supabase insert session failed: {e}")
 
         return {"success": True, "session_id": session_id, "questions": result.get("questions", []), "source": source}
     except Exception as e:
         logger.error(f"generate_technical error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate-aptitude")
+async def generate_aptitude(payload: Dict[str, Any]):
+    try:
+        difficulty = payload.get("difficulty", "medium")
+        total = int(payload.get("total", 15))
+        resume_summary = payload.get("resume_summary", "")
+        prompt = f"""
+You are an expert aptitude test creator. Generate {total} aptitude questions at {difficulty} level.
+Categories to include:
+- Logical Reasoning (40%)
+- Quantitative Aptitude (30%)
+- Verbal Reasoning (20%)
+- Data Interpretation (10%)
+Resume context (optional): {resume_summary if resume_summary else "No resume provided"}
+Output ONLY valid JSON:
+{{
+  "questions": [
+    {{ "id": "apt1", "text": "...", "category": "logical_reasoning|quantitative|verbal|data_interpretation", "difficulty": "easy|medium|hard", "answer": "...", "explanation": "..." }},
+    ...
+  ]
+}}
+"""
+        result = await _call_groq(prompt, timeout=8.0, api_key=GROQ_API_KEY_APTITUDE)
+        if not result.get("questions"):
+            result = _default_questions_aptitude(difficulty, total)
+        session_id = str(uuid.uuid4())
+        session_obj = {
+            "id": session_id,
+            "user_id": payload.get("user_id", "demo"),
+            "interview_type": "aptitude",
+            "difficulty": difficulty,
+            "status": "active",
+            "questions": result.get("questions", []),
+            "current_question": 0,
+            "start_time": datetime.utcnow().isoformat(),
+            "duration": payload.get("duration", 45),
+        }
+        interview_sessions[session_id] = session_obj
+        if supabase:
+            try:
+                supabase.table("interview_sessions").insert({
+                    "id": session_id,
+                    "user_id": session_obj["user_id"],
+                    "session_type": "aptitude",
+                    "difficulty": difficulty,
+                    "questions_data": {"questions": session_obj["questions"]},
+                    "status": "active",
+                    "started_at": datetime.utcnow().isoformat(),
+                }).execute()
+            except Exception as e:
+                logger.warning(f"Supabase insert session failed: {e}")
+        return {"success": True, "session_id": session_id, "questions": result.get("questions", [])}
+    except Exception as e:
+        logger.error(f"generate_aptitude error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate-hr")
+async def generate_hr(payload: Dict[str, Any]):
+    try:
+        job_role = payload.get("job_role", "Software Engineer")
+        exp_level = payload.get("exp_level", "1-3")
+        resume_summary = payload.get("resume_summary", "")
+        total = int(payload.get("total", 8))
+        prompt = f"""
+You are an expert HR interviewer. Generate {total} behavioral/HR interview questions for:
+Role: {job_role}
+Experience Level: {exp_level} years
+Resume Summary: {resume_summary}
+Include:
+- Tell me about yourself (STAR)
+- Strengths & Weaknesses
+- Conflict resolution
+- Leadership examples
+- Career goals
+- Company fit
+Output ONLY valid JSON:
+{{
+  "questions": [
+    {{ "id": "hr1", "text": "...", "category": "behavioral|motivation|self_assessment", "difficulty": "easy|medium|hard", "star_points": ["Situation","Task","Action","Result"] }},
+    ...
+  ]
+}}
+"""
+        result = await _call_groq(prompt, timeout=8.0, api_key=GROQ_API_KEY_HR)
+        if not result.get("questions"):
+            result = _default_questions_hr(total)
+        session_id = str(uuid.uuid4())
+        session_obj = {
+            "id": session_id,
+            "user_id": payload.get("user_id", "demo"),
+            "interview_type": "hr",
+            "job_role": job_role,
+            "difficulty": "adaptive",
+            "status": "active",
+            "questions": result.get("questions", []),
+            "current_question": 0,
+            "start_time": datetime.utcnow().isoformat(),
+            "duration": payload.get("duration", 30),
+        }
+        interview_sessions[session_id] = session_obj
+        if supabase:
+            try:
+                supabase.table("interview_sessions").insert({
+                    "id": session_id,
+                    "user_id": session_obj["user_id"],
+                    "session_type": "hr",
+                    "job_role": job_role,
+                    "questions_data": {"questions": session_obj["questions"]},
+                    "status": "active",
+                    "started_at": datetime.utcnow().isoformat(),
+                }).execute()
+            except Exception as e:
+                logger.warning(f"Supabase insert session failed: {e}")
+        return {"success": True, "session_id": session_id, "questions": result.get("questions", [])}
+    except Exception as e:
+        logger.error(f"generate_hr error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
