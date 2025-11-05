@@ -523,71 +523,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { gatewayAuthService } from "@/api/services/gatewayAuthService";
 import { useNavigate } from "react-router-dom";
 
-const staticQuestions = {
-  "Software Engineer": [
-    "Tell me about your experience with agile development methodologies.",
-    "How do you approach debugging complex issues in your code?",
-    "Describe a time when you had to design a scalable web application.",
-    "How do you use version control in your workflow?",
-    "Tell me about a challenging project you've worked on and how you handled it.",
-  ],
-  "Frontend Developer": [
-    "Explain how React hooks work and their advantages over class components.",
-    "How do you optimize website performance?",
-    "What strategies do you use for responsive design?",
-    "How do you approach testing frontend applications?",
-    "How do you ensure cross-browser compatibility in your web applications?",
-  ],
-  "Backend Developer": [
-    "How do you design database schemas for scalability?",
-    "What security measures do you implement in your APIs?",
-    "How have you implemented microservices architecture?",
-    "Explain your approach to error handling in a backend application.",
-    "How do you handle API versioning?",
-  ],
-  "Data Scientist": [
-    "How do you handle data preparation and cleaning?",
-    "Which machine learning algorithms have you used and in what contexts?",
-    "How do you validate your models?",
-    "How do you translate business problems into data science solutions?",
-    "How do you communicate technical findings to non-technical stakeholders?",
-  ],
-  "DevOps Engineer": [
-    "Describe your experience setting up CI/CD pipelines.",
-    "How do you approach infrastructure automation?",
-    "What monitoring and logging practices do you implement?",
-    "How do you ensure security in your DevOps processes?",
-    "How do you handle incident response in a production environment?",
-  ],
-  "ML Engineer": [
-    "Explain your experience with deploying machine learning models to production.",
-    "How do you ensure the quality and reliability of machine learning systems?",
-    "Describe your approach to feature engineering and selection.",
-    "How do you handle the challenges of training models on large datasets?",
-    "How do you keep up with the rapidly evolving field of machine learning?",
-  ],
-  "Full Stack Developer": [
-    "How do you manage the frontend and backend parts of an application?",
-    "What's your approach to ensuring data consistency across the stack?",
-    "Tell me about a full stack project you've worked on from inception to deployment.",
-    "How do you handle authentication and authorization in a full stack app?",
-    "What strategies do you use for state management across the entire application?",
-  ],
-  "Cloud Architect": [
-    "How do you approach designing multi-region, highly available cloud architectures?",
-    "Describe your experience with cloud cost optimization.",
-    "How do you implement security in cloud environments?",
-    "Explain how you manage cloud infrastructure at scale.",
-    "How do you approach migrating legacy applications to the cloud?",
-  ],
-  Default: [
-    "Tell me about your background and experience.",
-    "What are your strengths and weaknesses?",
-    "How do you stay updated with the latest technologies?",
-    "How do you approach problem-solving?",
-    "Where do you see yourself in 5 years?",
-  ],
-};
+// No static fallback questions — always use backend
 
 enum InterviewStage {
   TypeSelection = "type_selection",
@@ -657,7 +593,7 @@ const MockInterview = () => {
           tech_stack: String(data.techStack || "").split(",").map((s: string) => s.trim()).filter(Boolean),
           exp_level: data.experience || "1-3",
           resume_summary: data.resumeSummary || "",
-          total: 5,
+          total: 10,
           duration: 30,
         };
       } else if (selectedInterviewType === "aptitude") {
@@ -676,7 +612,7 @@ const MockInterview = () => {
           job_role: data.role || data.industry || "Software Engineer",
           exp_level: data.experience || data.positionLevel || "1-3",
           resume_summary: data.resumeSummary || "",
-          total: 8,
+          total: 10,
           duration: 30,
         };
       }
@@ -748,33 +684,7 @@ const MockInterview = () => {
     });
   };
 
-  const resumeInterview = (interview: any) => {
-    // Set up with static interview questions
-    const jobType = interview.job_role.includes("Frontend")
-      ? "Frontend Developer"
-      : interview.job_role.includes("Backend")
-      ? "Backend Developer"
-      : interview.job_role.includes("Full")
-      ? "Full Stack Developer"
-      : interview.job_role.includes("Data")
-      ? "Data Scientist"
-      : interview.job_role.includes("DevOps")
-      ? "DevOps Engineer"
-      : interview.job_role.includes("ML")
-      ? "ML Engineer"
-      : interview.job_role.includes("Cloud")
-      ? "Cloud Architect"
-      : "Default";
-
-    const interviewQuestions =
-      staticQuestions[jobType as keyof typeof staticQuestions] ||
-      staticQuestions["Default"];
-
-    setQuestions(interviewQuestions);
-    setCurrentQuestionIndex(0);
-    setInterviewId(interview.id);
-    setStage(InterviewStage.Questions);
-  };
+  // No resume of old static interviews
 
   const renderStage = () => {
     switch (stage) {
@@ -910,6 +820,24 @@ const MockInterview = () => {
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
+              <div className="mb-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    if (isRecording) {
+                      const confirmLeave = window.confirm("Stop recording and go back to questions?");
+                      if (!confirmLeave) return;
+                      setIsRecording(false);
+                    }
+                    setStage(InterviewStage.Questions);
+                  }}
+                  className="text-muted-foreground"
+                >
+                  <ChevronLeft className="mr-2 h-4 w-4" />
+                  Back to Questions
+                </Button>
+              </div>
               <div className="mb-6">
                 <h2 className="text-xl font-semibold mb-2">
                   Question {currentQuestionIndex + 1}:

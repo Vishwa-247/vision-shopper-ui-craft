@@ -561,9 +561,23 @@ async def _call_groq(prompt: str, timeout: float = 6.0, api_key: Optional[str] =
         resp.raise_for_status()
         data = resp.json()
         text = data.get("choices", [{}])[0].get("message", {}).get("content", "{}")
+        # Sanitize possible code fences or extra prose and extract JSON
+        sanitized = text.strip()
+        if sanitized.startswith("```"):
+            # remove code fence markers like ```json ... ```
+            sanitized = "\n".join([line for line in sanitized.splitlines() if not line.startswith("```")])
+        # Try direct parse
         try:
-            return json.loads(text)
+            return json.loads(sanitized)
         except Exception:
+            # Fallback: extract first JSON object "{ ... }"
+            start = sanitized.find("{")
+            end = sanitized.rfind("}")
+            if start != -1 and end != -1 and end > start:
+                try:
+                    return json.loads(sanitized[start:end+1])
+                except Exception:
+                    pass
             return {"questions": []}
 
 def _default_questions(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -674,6 +688,8 @@ async def generate_technical(payload: Dict[str, Any]):
             except Exception as e:
                 logger.warning(f"Supabase insert session failed: {e}")
 
+        logger.info(f"✅ Generated {len(result.get('questions', []))} questions from {source}")
+        logger.info(f"Resume summary length: {len((payload.get('resume_summary') or ''))}")
         return {"success": True, "session_id": session_id, "questions": result.get("questions", []), "source": source}
     except Exception as e:
         logger.error(f"generate_technical error: {e}")
