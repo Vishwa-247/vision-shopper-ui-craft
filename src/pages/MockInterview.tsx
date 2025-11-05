@@ -725,7 +725,7 @@ const MockInterview = () => {
       setQuestions(returnedQuestions);
       setCurrentQuestionIndex(0);
       toast({ title: "Interview Ready", description: `Generated ${returnedQuestions.length} questions.` });
-      setStage(InterviewStage.Questions);
+      setStage(InterviewStage.Recording);
     } catch (e: any) {
       console.error("Question generation failed:", e);
       toast({ title: "Generation failed", description: e?.message || "Please try again.", variant: "destructive" });
