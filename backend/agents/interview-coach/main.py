@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Optional
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -63,7 +63,7 @@ GROQ_API_KEY_HR = os.getenv("GROQ_API_KEY_HR") or os.getenv("GROQ_HR_API_KEY") o
 
 # Optional Supabase client
 try:
-    from supabase import create_client, Client  # type: ignore
+    from supabase import Client, create_client  # type: ignore
     SUPABASE_URL = os.getenv("SUPABASE_URL")
     SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     supabase: Optional[Client] = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
@@ -308,7 +308,8 @@ async def submit_answer(
         if "multipart/form-data" in content_type and audio is not None:
             # Transcribe audio
             try:
-                from .transcription import transcribe_audio  # lazy import within service
+                from .transcription import \
+                    transcribe_audio  # lazy import within service
                 audio_bytes = await audio.read()
                 user_answer_text = await transcribe_audio(audio_bytes, audio.content_type)
             except Exception as e:

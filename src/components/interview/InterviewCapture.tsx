@@ -55,7 +55,30 @@ const InterviewCapture: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const startRecording = () => {
+  const ensureStreams = async () => {
+    if (!audioStream) {
+      const a = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+      });
+      setAudioStream(a);
+    }
+    if (!videoStream) {
+      const v = await navigator.mediaDevices.getUserMedia({ video: true });
+      setVideoStream(v);
+      if (videoRef.current) {
+        videoRef.current.srcObject = v;
+        await videoRef.current.play();
+      }
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      await ensureStreams();
+    } catch (e) {
+      console.error('Media permission error:', e);
+      return;
+    }
     if (!audioStream) return;
     audioChunksRef.current = [];
 

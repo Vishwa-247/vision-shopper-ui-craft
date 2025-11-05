@@ -792,26 +792,6 @@ const MockInterview = () => {
                   </div>
                 </CardContent>
               </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Save Your Interview</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-4">
-                    Download your interview session for future reference or to
-                    share with mentors.
-                  </p>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={handleDownloadInterview}
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Interview
-                  </Button>
-                </CardContent>
-              </Card>
             </div>
           </div>
         );
