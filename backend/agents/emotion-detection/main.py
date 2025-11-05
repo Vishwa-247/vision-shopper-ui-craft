@@ -8,6 +8,8 @@ import os
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
+import torch
+import torch.nn as nn
 
 # Add utils to path
 sys.path.append(str(Path(__file__).parent))
@@ -39,8 +41,26 @@ emotion_labels = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutr
 # Initialize face tracker
 face_tracker = AdvancedFaceTracker()
 
-# TODO: Load your trained FER-2013 model here
-# model = load_model('path/to/your/fer2013_model.h5')
+# Load ViT FER-2013 model (PyTorch)
+MODEL_LOADED = False
+MODEL_INPUT_SIZE = 224  # ViT common input size
+MODEL_PATH_ENV = os.getenv("FER_MODEL_PATH")
+DEFAULT_MODEL_PATH = r"C:\\Users\\VISHWA TEJA THOUTI\\Downloads\\furniture-fusion-bazaar-main (2)\\furniture-fusion-bazaar-main\\backend\\agents\\emotion-detection\\models\\best_vit_fer2013_model.pt"
+MODEL_PATH = MODEL_PATH_ENV if MODEL_PATH_ENV else DEFAULT_MODEL_PATH
+
+model = None
+try:
+    if Path(MODEL_PATH).exists():
+        model = torch.load(MODEL_PATH, map_location=torch.device('cpu'))
+        if isinstance(model, nn.Module):
+            model.eval()
+        MODEL_LOADED = True
+        logger.info(f"✅ FER-2013 ViT model loaded from: {MODEL_PATH}")
+    else:
+        logger.warning(f"FER model not found at {MODEL_PATH}. Using mock predictions.")
+except Exception as e:
+    logger.error(f"Failed to load FER model: {e}")
+    MODEL_LOADED = False
 
 @app.route('/')
 def home():
@@ -48,14 +68,15 @@ def home():
         "service": "Emotion Detection API",
         "version": "1.0.0",
         "status": "running",
-        "model": "FER-2013 (to be loaded)"
+        "model": "FER-2013 ViT" if MODEL_LOADED else "mock",
+        "model_loaded": MODEL_LOADED
     })
 
 @app.route('/health')
 def health():
     return jsonify({
         "status": "healthy",
-        "model_loaded": False  # Will be True when model is loaded
+        "model_loaded": MODEL_LOADED
     })
 
 @app.route('/analyze', methods=['POST', 'OPTIONS'])
@@ -119,35 +140,34 @@ def analyze_emotion():
         x, y, w, h = max(faces, key=lambda rect: rect[2] * rect[3])
         face = gray[y:y+h, x:x+w]
         
-        # Resize to 48x48 for FER-2013 model
-        face_resized = cv2.resize(face, (48, 48))
-        face_normalized = face_resized / 255.0
-        
-        # TODO: Use your trained model for prediction
-        # face_input = face_normalized.reshape(1, 48, 48, 1)
-        # predictions = model.predict(face_input)[0]
-        
-        # For now, simulate predictions based on image statistics
-        # This is a placeholder until you load your actual model
-        mean_intensity = np.mean(face_normalized)
-        std_intensity = np.std(face_normalized)
-        
-        # Generate mock predictions based on face characteristics
-        # In production, replace this with actual model predictions
-        predictions = np.array([
-            0.05,  # Angry
-            0.02,  # Disgust
-            0.10,  # Fear (nervous)
-            0.35,  # Happy (confident)
-            0.08,  # Sad (stressed)
-            0.15,  # Surprise (engaged)
-            0.25   # Neutral
-        ])
-        
-        # Add some randomness to simulate real predictions
-        predictions += np.random.uniform(-0.05, 0.05, 7)
-        predictions = np.clip(predictions, 0, 1)
-        predictions /= predictions.sum()  # Normalize to sum to 1
+        predictions = None
+        if MODEL_LOADED and isinstance(model, nn.Module):
+            # Preprocess for ViT: resize 224x224, convert gray->3 channels, normalize ImageNet
+            face_resized = cv2.resize(face, (MODEL_INPUT_SIZE, MODEL_INPUT_SIZE))
+            face_3ch = np.stack([face_resized, face_resized, face_resized], axis=-1)  # HWC, 3ch
+            face_float = face_3ch.astype(np.float32) / 255.0
+            # ImageNet mean/std
+            mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+            std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+            face_norm = (face_float - mean) / std
+            # To tensor NCHW
+            tensor = torch.from_numpy(face_norm).permute(2, 0, 1).unsqueeze(0)  # 1x3x224x224
+            with torch.no_grad():
+                logits = model(tensor)
+                if isinstance(logits, (list, tuple)):
+                    logits = logits[0]
+                probs = torch.softmax(logits, dim=1).cpu().numpy()[0]
+            predictions = probs
+        else:
+            # Mock predictions fallback
+            face_resized = cv2.resize(face, (48, 48))
+            face_normalized = face_resized / 255.0
+            predictions = np.array([
+                0.05, 0.02, 0.10, 0.35, 0.08, 0.15, 0.25
+            ])
+            predictions += np.random.uniform(-0.05, 0.05, 7)
+            predictions = np.clip(predictions, 0, 1)
+            predictions /= predictions.sum()
         
         emotion_idx = np.argmax(predictions)
         emotion = emotion_labels[emotion_idx]
@@ -187,5 +207,6 @@ def analyze_emotion():
 
 if __name__ == '__main__':
     logger.info("Starting Emotion Detection Service on port 5000...")
-    logger.warning("NOTE: Using mock predictions. Load your trained FER-2013 model for real predictions.")
+    if not MODEL_LOADED:
+        logger.warning("NOTE: Using mock predictions. Provide FER_MODEL_PATH in backend/.env or place model at default path for real predictions.")
     app.run(host='0.0.0.0', port=5000, debug=True)
