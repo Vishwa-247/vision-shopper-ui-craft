@@ -227,6 +227,31 @@ async def analyze_interview(interview_id: str, analysis_data: dict, user_id: str
 async def generate_technical(interview_data: dict, user_id: str = Depends(verify_token)):
     interview_data["user_id"] = user_id
     return await forward_to_agent("interview-coach", "/generate-technical", "POST", interview_data)
+@app.post("/interviews/{interview_id}/answer")
+async def submit_interview_answer(
+    interview_id: str,
+    user_id: str = Depends(verify_token),
+    audio: UploadFile | None = File(None),
+    question_id: str | None = Form(None),
+):
+    """Forward answer uploads (multipart) to interview-coach service."""
+    try:
+        target = f"{AGENT_SERVICES['interview-coach']}/interviews/{interview_id}/answer"
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            if audio is not None:
+                files = {"audio": (audio.filename, await audio.read(), audio.content_type or "application/octet-stream")}
+                data = {}
+                if question_id is not None:
+                    data["question_id"] = question_id
+                resp = await client.post(target, files=files, data=data)
+            else:
+                # JSON fallback
+                payload = {"question_id": question_id or "0", "answer": ""}
+                resp = await client.post(target, json=payload)
+        return resp.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/interviews/generate-aptitude")
 async def generate_aptitude(interview_data: dict, user_id: str = Depends(verify_token)):
