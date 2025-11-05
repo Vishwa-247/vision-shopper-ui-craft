@@ -1038,6 +1038,7 @@ const MockInterview = () => {
             <UnifiedInterviewSetup
               type={selectedInterviewType as "aptitude" | "hr"}
               onSubmit={handleInterviewSetup}
+              onBack={() => setStage(InterviewStage.TypeSelection)}
             />
           )}
         </div>

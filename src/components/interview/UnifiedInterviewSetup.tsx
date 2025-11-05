@@ -204,9 +204,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 interface UnifiedInterviewSetupProps {
   type: 'technical' | 'aptitude' | 'hr';
   onSubmit: (data: any) => void;
+  onBack?: () => void;
 }
 
-const UnifiedInterviewSetup = ({ type, onSubmit }: UnifiedInterviewSetupProps) => {
+const UnifiedInterviewSetup = ({ type, onSubmit, onBack }: UnifiedInterviewSetupProps) => {
   const [difficulty, setDifficulty] = useState("medium");
   const [focusAreas, setFocusAreas] = useState<string[]>([]);
   const [timeLimit, setTimeLimit] = useState("30");
@@ -261,6 +262,14 @@ const UnifiedInterviewSetup = ({ type, onSubmit }: UnifiedInterviewSetupProps) =
       {/* Left: Form */}
       <Card>
         <CardHeader>
+          {onBack && (
+            <div className="mb-2">
+              <Button variant="ghost" size="sm" onClick={onBack} className="text-muted-foreground">
+                {/* simple "back" without icon to keep dependencies minimal */}
+                Back
+              </Button>
+            </div>
+          )}
           <CardTitle>
             {type === 'aptitude' ? 'Aptitude Test Setup' : 'HR Interview Setup'}
           </CardTitle>
