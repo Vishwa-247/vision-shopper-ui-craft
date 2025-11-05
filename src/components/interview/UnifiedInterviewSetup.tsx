@@ -195,11 +195,24 @@
 // export default UnifiedInterviewSetup;
 
 
-import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import React, { useState } from "react";
+import { ChevronLeft } from "lucide-react";
 
 interface UnifiedInterviewSetupProps {
   type: 'technical' | 'aptitude' | 'hr';
@@ -259,6 +272,14 @@ const UnifiedInterviewSetup = ({ type, onSubmit, onBack }: UnifiedInterviewSetup
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {onBack && (
+        <div className="lg:col-span-2 -mt-2">
+          <Button variant="outline" size="sm" onClick={onBack}>
+            <ChevronLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+        </div>
+      )}
       {/* Left: Form */}
       <Card>
         <CardHeader>
