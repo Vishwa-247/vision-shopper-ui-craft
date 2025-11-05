@@ -523,6 +523,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { gatewayAuthService } from "@/api/services/gatewayAuthService";
 import { useNavigate } from "react-router-dom";
 
+const STORAGE_KEY = "mockInterviewState";
+
 const CameraPreview: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -578,17 +580,20 @@ const MockInterview = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { session } = useAuth();
+  const persisted = (() => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch { return null; }
+  })();
   const [isLoading, setIsLoading] = useState(false);
   const [stage, setStage] = useState<InterviewStage>(
-    InterviewStage.TypeSelection
+    (persisted?.stage as InterviewStage) || InterviewStage.TypeSelection
   );
   const [selectedInterviewType, setSelectedInterviewType] =
-    useState<string>("");
-  const [questions, setQuestions] = useState<string[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+    useState<string>(persisted?.selectedInterviewType || "");
+  const [questions, setQuestions] = useState<string[]>(Array.isArray(persisted?.questions) ? persisted.questions : []);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(typeof persisted?.currentQuestionIndex === "number" ? persisted.currentQuestionIndex : 0);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingComplete, setRecordingComplete] = useState(false);
-  const [interviewId, setInterviewId] = useState<string>("mock-001");
+  const [interviewId, setInterviewId] = useState<string>(persisted?.interviewId || "mock-001");
   const [metricsData, setMetricsData] = useState({
     facialData: { confident: 0, stressed: 0, nervous: 0 },
     behaviorData: {
@@ -991,6 +996,18 @@ const MockInterview = () => {
   const renderRecentInterviews = () => {
     return null; // Removed dummy data
   };
+
+  // Persist state so refresh does not reset flow
+  useEffect(() => {
+    const stateToSave = {
+      stage,
+      selectedInterviewType,
+      questions,
+      currentQuestionIndex,
+      interviewId,
+    };
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave)); } catch {}
+  }, [stage, selectedInterviewType, questions, currentQuestionIndex, interviewId]);
 
   return (
     <Container className="py-12">
