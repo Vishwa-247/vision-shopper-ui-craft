@@ -46,10 +46,8 @@ const MetricBar = ({ label, value, color, icon }: { label: string; value: number
 };
 
 const MetricsPanel = ({ facialData, behaviorData, communicationData, isVisible }: MetricsPanelProps) => {
-  if (!isVisible) return null;
-  
   return (
-    <Card className="w-64 shadow-lg border-border/50 bg-card/95 backdrop-blur">
+    <Card className="w-64 h-96 sticky top-4 shadow-lg border-border/50 bg-card/95 backdrop-blur relative overflow-hidden">
       <CardHeader className="pb-3 px-4 pt-4">
         <CardTitle className="text-sm flex items-center gap-2">
           <Activity className="h-4 w-4 text-primary" />
@@ -110,6 +108,11 @@ const MetricsPanel = ({ facialData, behaviorData, communicationData, isVisible }
           </div>
         </div>
       </CardContent>
+      {!isVisible && (
+        <div className="absolute inset-0 bg-background/70 backdrop-blur-sm flex items-center justify-center text-xs text-muted-foreground">
+          Start recording to see metrics
+        </div>
+      )}
     </Card>
   );
 };

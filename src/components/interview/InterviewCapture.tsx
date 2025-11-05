@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Mic, MicOff, Video as VideoIcon, VideoOff, PlayCircle, StopCircle, Clock, Activity } from "lucide-react";
 
 type Props = {
   onAudioReady: (blob: Blob) => void;
@@ -13,6 +15,8 @@ type Props = {
 const InterviewCapture: React.FC<Props> = ({
   onAudioReady,
   onFaceFrame,
+  onTranscriptUpdate,
+  onRecordingChange,
   faceIntervalMs = 2000,
   wsEnabled = false,
   wsUrl,
@@ -211,22 +215,26 @@ const InterviewCapture: React.FC<Props> = ({
 
   return (
     <div className="space-y-3">
-      <div className="rounded border p-2 bg-black">
-        <video ref={videoRef} className="max-w-full" muted playsInline />
+      <div className="rounded border p-2 bg-black w-80 h-60 mx-auto">
+        <video ref={videoRef} className="w-full h-full object-cover rounded scale-x-[-1]" muted playsInline />
       </div>
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <div>
-          Time: {String(Math.floor(recordingTime / 60)).padStart(2,'0')}:{String(recordingTime % 60).padStart(2,'0')} / 03:00
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex items-center gap-1">
+          <Clock className="h-3.5 w-3.5" />
+          <span className="font-mono">
+            {String(Math.floor(recordingTime / 60)).padStart(2,'0')}:{String(recordingTime % 60).padStart(2,'0')}
+          </span>
+          <span className="opacity-60">/ 03:00</span>
         </div>
         <div className="flex items-center gap-2">
-          <span>Mic</span>
-          <div className="h-2 w-24 bg-muted rounded">
+          <Activity className="h-3.5 w-3.5" />
+          <div className="h-2 w-16 bg-muted rounded">
             <div className="h-2 bg-green-500 rounded" style={{ width: `${Math.min(100, Math.round((audioLevel/255)*100))}%` }} />
           </div>
         </div>
       </div>
-      <div className="flex gap-2">
-        <button
+      <div className="flex gap-2 justify-center">
+        <Button
           onClick={async () => {
             try {
               await ensureStreams();
@@ -235,11 +243,13 @@ const InterviewCapture: React.FC<Props> = ({
               if (audioStream) audioStream.getAudioTracks().forEach(t => (t.enabled = next));
             } catch {}
           }}
-          className={`px-3 py-2 rounded ${micEnabled ? 'bg-primary text-white' : 'bg-secondary text-foreground'}`}
+          variant={micEnabled ? 'default' : 'outline'}
+          size="sm"
+          title={micEnabled ? 'Mic On' : 'Mic Off'}
         >
-          {micEnabled ? 'Mic On' : 'Mic Off'}
-        </button>
-        <button
+          {micEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+        </Button>
+        <Button
           onClick={async () => {
             try {
               await ensureStreams();
@@ -248,18 +258,20 @@ const InterviewCapture: React.FC<Props> = ({
               if (videoStream) videoStream.getVideoTracks().forEach(t => (t.enabled = next));
             } catch {}
           }}
-          className={`px-3 py-2 rounded ${camEnabled ? 'bg-primary text-white' : 'bg-secondary text-foreground'}`}
+          variant={camEnabled ? 'default' : 'outline'}
+          size="sm"
+          title={camEnabled ? 'Camera On' : 'Camera Off'}
         >
-          {camEnabled ? 'Camera On' : 'Camera Off'}
-        </button>
+          {camEnabled ? <VideoIcon className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+        </Button>
         {!recording ? (
-          <button onClick={startRecording} className="px-3 py-2 rounded bg-primary text-white">
-            Start Interview (audio + camera analysis)
-          </button>
+          <Button onClick={startRecording} size="sm">
+            <PlayCircle className="h-4 w-4 mr-1" /> Start
+          </Button>
         ) : (
-          <button onClick={stopRecording} className="px-3 py-2 rounded bg-red-600 text-white">
-            Stop & Save Answer
-          </button>
+          <Button onClick={stopRecording} size="sm" variant="destructive">
+            <StopCircle className="h-4 w-4 mr-1" /> Stop
+          </Button>
         )}
       </div>
       <canvas ref={canvasRef} style={{ display: "none" }} />

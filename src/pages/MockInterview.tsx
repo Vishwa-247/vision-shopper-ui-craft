@@ -900,9 +900,9 @@ const MockInterview = () => {
 
       case InterviewStage.Recording:
         return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <div className="mb-2">
+          <div className="space-y-4">
+            <Card>
+              <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -910,145 +910,127 @@ const MockInterview = () => {
                     if (isRecording) {
                       const confirmLeave = window.confirm("Stop recording and go back to questions?");
                       if (!confirmLeave) return;
-                      setIsRecording(false);
                     }
                     setStage(InterviewStage.Questions);
                   }}
                   className="text-muted-foreground"
                 >
-                  <ChevronLeft className="mr-2 h-4 w-4" />
-                  Back to Questions
+                  <ChevronLeft className="mr-2 h-4 w-4" /> Back
                 </Button>
-              </div>
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-2">
-                  Question {currentQuestionIndex + 1}:
-                </h2>
-                <div className="p-4 bg-muted rounded-md text-lg mb-4">
+                <span className="text-sm text-muted-foreground">
+                  Q{currentQuestionIndex + 1} / {questions.length}
+                </span>
+              </CardHeader>
+              <CardContent>
+                <div className="p-4 bg-muted rounded-md text-lg">
                   {questions[currentQuestionIndex]}
                 </div>
-                <p className="text-muted-foreground">
-                  When you're ready, click "Start Recording" and begin your
-                  answer. We'll analyze both your verbal response and facial
-                  expressions.
-                </p>
-              </div>
+              </CardContent>
+            </Card>
 
-              <Card className="mt-8">
-                <CardHeader>
-                  <CardTitle>Answering Tips</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    <li className="flex items-start gap-2">
-                      <div className="rounded-full bg-primary/10 p-1 mt-0.5">
-                        <span className="block h-1.5 w-1.5 rounded-full bg-primary"></span>
-                      </div>
-                      <span>Use specific examples from your experience</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <div className="rounded-full bg-primary/10 p-1 mt-0.5">
-                        <span className="block h-1.5 w-1.5 rounded-full bg-primary"></span>
-                      </div>
-                      <span>Avoid filler words like "um" and "uh"</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <div className="rounded-full bg-primary/10 p-1 mt-0.5">
-                        <span className="block h-1.5 w-1.5 rounded-full bg-primary"></span>
-                      </div>
-                      <span>Speak confidently and maintain good posture</span>
-                    </li>
-                  </ul>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="space-y-6">
-              <InterviewCapture
-                onRecordingChange={(v) => setIsRecording(v)}
-                onTranscriptUpdate={(text) => setLiveTranscription(text)}
-                wsEnabled={true}
-                wsUrl={"ws://localhost:8002/ws/transcribe"}
-                onFaceFrame={async (jpegBase64) => {
-                  try {
-                    const res = await fetch('http://localhost:5000/analyze', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ image: jpegBase64 }),
-                    });
-                    if (!res.ok) return;
-                    const data = await res.json();
-                    setMetricsData(prev => ({
-                      ...prev,
-                      facialData: {
-                        confident: (data.metrics?.confident ?? 0),
-                        stressed: (data.metrics?.stressed ?? 0),
-                        nervous: (data.metrics?.nervous ?? 0),
-                      },
-                      behaviorData: {
-                        blink_count: data.face_tracking?.blink_count ?? 0,
-                        looking_at_camera: !!data.face_tracking?.looking_at_camera,
-                        head_pose: data.face_tracking?.head_pose ?? { pitch: 0, yaw: 0, roll: 0 },
-                      },
-                    }));
-                  } catch (e) {
-                    console.error('Face frame analysis error:', e);
-                  }
-                }}
-                onAudioReady={async (blob) => {
-                  try {
-                    const fd = new FormData();
-                    fd.append('audio', blob, 'answer.webm');
-                    fd.append('question_id', String(currentQuestionIndex));
-                    const resp = await fetch(`http://localhost:8000/interviews/${interviewId}/answer`, {
-                      method: 'POST',
-                      body: fd,
-                    });
-                    const data = await resp.json();
-                    if (data?.analysis) {
-                      // If backend returns analysis fields in future, update metrics here
-                      // Placeholder: only assign when provided; no dummy values
+            <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr_280px] gap-4">
+              <div className="space-y-4">
+                <InterviewCapture
+                  onRecordingChange={(v) => setIsRecording(v)}
+                  onTranscriptUpdate={(text) => setLiveTranscription(text)}
+                  wsEnabled={true}
+                  wsUrl={"ws://localhost:8002/ws/transcribe"}
+                  onFaceFrame={async (jpegBase64) => {
+                    try {
+                      const res = await fetch('http://localhost:5000/analyze', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ image: jpegBase64 }),
+                      });
+                      if (!res.ok) return;
+                      const data = await res.json();
                       setMetricsData(prev => ({
                         ...prev,
-                        communicationData: {
-                          filler_word_count: Number(data.analysis.filler_word_count ?? prev.communicationData.filler_word_count),
-                          words_per_minute: Number(data.analysis.words_per_minute ?? prev.communicationData.words_per_minute),
-                          clarity_score: Number(data.analysis.clarity_score ?? prev.communicationData.clarity_score),
-                        }
+                        facialData: {
+                          confident: (data.metrics?.confident ?? 0),
+                          stressed: (data.metrics?.stressed ?? 0),
+                          nervous: (data.metrics?.nervous ?? 0),
+                        },
+                        behaviorData: {
+                          blink_count: data.face_tracking?.blink_count ?? 0,
+                          looking_at_camera: !!data.face_tracking?.looking_at_camera,
+                          head_pose: data.face_tracking?.head_pose ?? { pitch: 0, yaw: 0, roll: 0 },
+                        },
                       }));
+                    } catch (e) {
+                      console.error('Face frame analysis error:', e);
                     }
-                    setRecordingComplete(true);
-                  } catch (err) {
-                    console.error('Submit answer failed:', err);
-                    toast({ title: 'Submission Error', description: 'Please try again.', variant: 'destructive' });
-                  }
-                }}
-              />
+                  }}
+                  onAudioReady={async (blob) => {
+                    try {
+                      const fd = new FormData();
+                      fd.append('audio', blob, 'answer.webm');
+                      fd.append('question_id', String(currentQuestionIndex));
+                      const resp = await fetch(`http://localhost:8000/interviews/${interviewId}/answer`, {
+                        method: 'POST',
+                        body: fd,
+                      });
+                      const data = await resp.json();
+                      if (data?.analysis) {
+                        setMetricsData(prev => ({
+                          ...prev,
+                          communicationData: {
+                            filler_word_count: Number(data.analysis.filler_word_count ?? prev.communicationData.filler_word_count),
+                            words_per_minute: Number(data.analysis.words_per_minute ?? prev.communicationData.words_per_minute),
+                            clarity_score: Number(data.analysis.clarity_score ?? prev.communicationData.clarity_score),
+                          }
+                        }));
+                      }
+                      setRecordingComplete(true);
+                    } catch (err) {
+                      console.error('Submit answer failed:', err);
+                      toast({ title: 'Submission Error', description: 'Please try again.', variant: 'destructive' });
+                    }
+                  }}
+                />
 
-              <MetricsPanel
-                facialData={metricsData.facialData}
-                behaviorData={metricsData.behaviorData}
-                communicationData={metricsData.communicationData}
-                isVisible={isRecording}
-              />
-
-              <TranscriptionDisplay text={liveTranscription} isRecording={isRecording} />
-
-              <div className="mt-6 flex justify-center space-x-4">
-                {recordingComplete ? (
-                  <Button
-                    onClick={handleNextQuestion}
-                    className="px-6 py-3 bg-primary text-white rounded-lg flex items-center space-x-2"
-                  >
-                    <span>Next Question</span>
-                    <ChevronRight size={16} />
-                  </Button>
-                ) : (
-                  <Button variant="outline" onClick={handleCancel}>
-                    Cancel
-                  </Button>
-                )}
+                <Card className="hidden md:block">
+                  <CardHeader>
+                    <CardTitle>Tips</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="text-sm space-y-2">
+                      <li>• Use specific examples</li>
+                      <li>• Avoid filler words</li>
+                      <li>• Maintain eye contact</li>
+                    </ul>
+                  </CardContent>
+                </Card>
               </div>
+
+              <div>
+                <TranscriptionDisplay text={liveTranscription} isRecording={isRecording} />
+              </div>
+
+              <div className="flex lg:justify-end">
+                <MetricsPanel
+                  facialData={metricsData.facialData}
+                  behaviorData={metricsData.behaviorData}
+                  communicationData={metricsData.communicationData}
+                  isVisible={isRecording}
+                />
+              </div>
+            </div>
+
+            <div className="mt-2 flex justify-center space-x-4">
+              {recordingComplete ? (
+                <Button
+                  onClick={handleNextQuestion}
+                  className="px-6 py-3 bg-primary text-white rounded-lg flex items-center space-x-2"
+                >
+                  <span>Next Question</span>
+                  <ChevronRight size={16} />
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={handleCancel}>
+                  Cancel
+                </Button>
+              )}
             </div>
           </div>
         );

@@ -7,27 +7,32 @@ interface TranscriptionDisplayProps {
 }
 
 const TranscriptionDisplay = ({ text, isRecording }: TranscriptionDisplayProps) => {
-	const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
-	return (
-		<Card>
-			<CardHeader className="pb-3">
-				<CardTitle className="text-sm flex items-center gap-2">
-					<Mic className="h-4 w-4" /> Live Transcription
-					{isRecording && (
-						<span className="flex items-center gap-1 text-red-600 text-xs">
-							<Circle className="h-3 w-3 fill-red-600" /> Recording
-						</span>
-					)}
-				</CardTitle>
-			</CardHeader>
-			<CardContent>
-				<div className="text-sm min-h-[96px] whitespace-pre-wrap leading-relaxed">
-					{text ? text : (isRecording ? "Listening... start speaking" : "Start recording to see transcription")}
-				</div>
-				<div className="mt-3 text-xs text-muted-foreground">Word count: {words}</div>
-			</CardContent>
-		</Card>
-	);
+    const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
+    const chars = text?.length || 0;
+    return (
+        <Card className="h-96">
+            <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                    <Mic className="h-4 w-4" /> Live Transcription
+                    {isRecording && (
+                        <span className="relative flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600" />
+                        </span>
+                    )}
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col h-[calc(100%-2.5rem)]">
+                <div className="flex-1 overflow-y-auto text-sm whitespace-pre-wrap leading-relaxed bg-muted/30 rounded p-2">
+                    {text ? text : (isRecording ? "Listening... start speaking" : "Start recording to see transcription")}
+                </div>
+                <div className="mt-2 text-xs text-muted-foreground flex items-center justify-between">
+                    <span>Words: {words}</span>
+                    <span>Characters: {chars}</span>
+                </div>
+            </CardContent>
+        </Card>
+    );
 };
 
 export default TranscriptionDisplay;
