@@ -211,8 +211,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import React, { useState } from "react";
 import { ChevronLeft } from "lucide-react";
+import React, { useState } from "react";
 
 interface UnifiedInterviewSetupProps {
   type: 'technical' | 'aptitude' | 'hr';
@@ -283,14 +283,6 @@ const UnifiedInterviewSetup = ({ type, onSubmit, onBack }: UnifiedInterviewSetup
       {/* Left: Form */}
       <Card>
         <CardHeader>
-          {onBack && (
-            <div className="mb-2">
-              <Button variant="ghost" size="sm" onClick={onBack} className="text-muted-foreground">
-                {/* simple "back" without icon to keep dependencies minimal */}
-                Back
-              </Button>
-            </div>
-          )}
           <CardTitle>
             {type === 'aptitude' ? 'Aptitude Test Setup' : 'HR Interview Setup'}
           </CardTitle>
