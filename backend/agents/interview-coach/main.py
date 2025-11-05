@@ -665,9 +665,9 @@ async def generate_technical(payload: Dict[str, Any]):
                     "id": session_id,
                     "user_id": session_obj["user_id"],
                     "session_type": "technical",
-                    "job_role": session_obj["job_role"],
-                    "difficulty": session_obj["difficulty"],
-                    "questions_data": {"questions": session_obj["questions"]},
+                    "job_role": session_obj.get("job_role"),
+                    # Store difficulty inside questions_data to avoid schema mismatches
+                    "questions_data": {"difficulty": session_obj.get("difficulty"), "questions": session_obj["questions"]},
                     "status": "active",
                     "started_at": datetime.utcnow().isoformat(),
                 }).execute()
@@ -723,8 +723,7 @@ Output ONLY valid JSON:
                     "id": session_id,
                     "user_id": session_obj["user_id"],
                     "session_type": "aptitude",
-                    "difficulty": difficulty,
-                    "questions_data": {"questions": session_obj["questions"]},
+                    "questions_data": {"difficulty": difficulty, "questions": session_obj["questions"]},
                     "status": "active",
                     "started_at": datetime.utcnow().isoformat(),
                 }).execute()
