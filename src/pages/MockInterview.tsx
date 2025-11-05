@@ -523,6 +523,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { gatewayAuthService } from "@/api/services/gatewayAuthService";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import TranscriptionDisplay from "@/components/interview/TranscriptionDisplay";
 
 const STORAGE_KEY = "mockInterviewState";
 
@@ -611,6 +612,7 @@ const MockInterview = () => {
       clarity_score: 0,
     },
   });
+  const [liveTranscription, setLiveTranscription] = useState("");
 
   // Load pending interviews from Supabase for current user
   useEffect(() => {
@@ -638,6 +640,21 @@ const MockInterview = () => {
   const handleTypeSelection = (type: string) => {
     setSelectedInterviewType(type);
     setStage(InterviewStage.Setup);
+  };
+
+  const handleDeletePending = async (sessionId: string) => {
+    try {
+      const { error } = await supabase
+        .from('interview_sessions')
+        .delete()
+        .eq('id', sessionId);
+      if (error) throw error;
+      setPending(prev => prev.filter(s => s.id !== sessionId));
+      toast({ title: 'Interview deleted', description: 'Pending interview has been removed.' });
+    } catch (e) {
+      console.error('Delete failed:', e);
+      toast({ title: 'Delete failed', variant: 'destructive' });
+    }
   };
   const handleInterviewSetup = async (
     dataOrRole: any,
@@ -727,7 +744,7 @@ const MockInterview = () => {
     }
     setInterviewId(row.id);
     setQuestions(qs);
-    setCurrentQuestionIndex(0);
+    setCurrentQuestionIndex(row.current_question_index ?? 0);
     setSelectedInterviewType(row.session_type || 'technical');
     setStage(InterviewStage.Questions);
   };
@@ -949,6 +966,9 @@ const MockInterview = () => {
             <div className="space-y-6">
               <InterviewCapture
                 onRecordingChange={(v) => setIsRecording(v)}
+                onTranscriptUpdate={(text) => setLiveTranscription(text)}
+                wsEnabled={true}
+                wsUrl={"ws://localhost:8002/ws/transcribe"}
                 onFaceFrame={async (jpegBase64) => {
                   try {
                     const res = await fetch('http://localhost:5000/analyze', {
@@ -1012,6 +1032,8 @@ const MockInterview = () => {
                 isVisible={isRecording}
               />
 
+              <TranscriptionDisplay text={liveTranscription} isRecording={isRecording} />
+
               <div className="mt-6 flex justify-center space-x-4">
                 {recordingComplete ? (
                   <Button
@@ -1060,9 +1082,26 @@ const MockInterview = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-muted-foreground">Progress</span>
+                      <span>
+                        {(row.current_question_index ?? 0)} / {(row.questions_data?.questions?.length ?? 0)}
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary"
+                        style={{ width: `${Math.min(100, Math.round(((row.current_question_index ?? 0) / Math.max(1, (row.questions_data?.questions?.length ?? 1))) * 100))}%` }}
+                      />
+                    </div>
+                  </div>
                   <div className="flex gap-2">
                     <Button variant="outline" className="w-full" onClick={() => handleResumePending(row)}>
                       Resume
+                    </Button>
+                    <Button variant="outline" className="w-20" onClick={() => handleDeletePending(row.id)}>
+                      Delete
                     </Button>
                   </div>
                 </CardContent>

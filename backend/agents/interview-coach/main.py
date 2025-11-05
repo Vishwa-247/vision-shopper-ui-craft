@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Optional
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -490,6 +490,46 @@ def generate_overall_analysis(session: Dict[str, Any]) -> Dict[str, Any]:
     }
     
     return analysis
+# --- WebSocket for real-time transcription ---
+@app.websocket("/ws/transcribe")
+async def websocket_transcribe(websocket: WebSocket):
+    await websocket.accept()
+    logger.info("WebSocket transcription client connected")
+    accumulated_audio = b""
+    try:
+        while True:
+            try:
+                message = await websocket.receive()
+            except Exception as e:  # noqa: BLE001
+                logger.error(f"WS receive error: {e}")
+                break
+            data_bytes: bytes | None = None
+            if isinstance(message, dict):
+                if message.get('bytes') is not None:
+                    data_bytes = message['bytes']
+                elif message.get('text'):
+                    # ignore text frames
+                    data_bytes = None
+            if data_bytes:
+                accumulated_audio += data_bytes
+                if len(accumulated_audio) > 48000:
+                    try:
+                        from .transcription import transcribe_audio  # type: ignore
+                        transcript = await transcribe_audio(accumulated_audio)
+                        if transcript:
+                            await websocket.send_json({"transcript": transcript})
+                        accumulated_audio = b""
+                    except Exception as e:  # noqa: BLE001
+                        logger.warning(f"Transcription chunk failed: {e}")
+                        accumulated_audio = b""
+    except WebSocketDisconnect:
+        logger.info("WebSocket transcription client disconnected")
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"WebSocket error: {e}")
+        try:
+            await websocket.close()
+        except Exception:  # noqa: BLE001
+            pass
 
 # -----------------------------
 # Hybrid Technical QG Endpoint

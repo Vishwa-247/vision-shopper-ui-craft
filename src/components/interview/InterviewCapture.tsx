@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 type Props = {
   onAudioReady: (blob: Blob) => void;
   onFaceFrame: (jpegBase64: string) => void;
+  onTranscriptUpdate?: (text: string) => void;
   faceIntervalMs?: number;
   wsEnabled?: boolean; // scaffold only, disabled by default
   wsUrl?: string;
@@ -91,6 +92,19 @@ const InterviewCapture: React.FC<Props> = ({
     if (wsEnabled && wsUrl && !wsRef.current) {
       try {
         wsRef.current = new WebSocket(wsUrl);
+        wsRef.current.onopen = () => {
+          // Connected for transcription streaming
+        };
+        wsRef.current.onmessage = (evt) => {
+          try {
+            const data = JSON.parse(evt.data);
+            if (data?.transcript && typeof onTranscriptUpdate === 'function') {
+              onTranscriptUpdate(data.transcript);
+            }
+          } catch {
+            // ignore
+          }
+        };
       } catch (e) {
         console.warn("WS init failed", e);
       }

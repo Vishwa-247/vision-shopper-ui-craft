@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Eye, MessageSquare } from "lucide-react";
+import { Activity, Eye, MessageSquare, Smile, TrendingUp, AlertTriangle } from "lucide-react";
 import { CheckCircle, XCircle } from "lucide-react";
 
 interface MetricsPanelProps {
@@ -21,7 +21,7 @@ interface MetricsPanelProps {
   isVisible: boolean;
 }
 
-const MetricBar = ({ label, value, color }: { label: string; value: number; color: string }) => {
+const MetricBar = ({ label, value, color, icon }: { label: string; value: number; color: string; icon?: React.ReactNode }) => {
   const colorClasses = {
     green: "bg-green-500",
     amber: "bg-amber-500",
@@ -32,7 +32,7 @@ const MetricBar = ({ label, value, color }: { label: string; value: number; colo
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
-        <span>{label}</span>
+        <span className="flex items-center gap-1.5">{icon}{label}</span>
         <span className="text-muted-foreground">{Math.round(value * 100)}%</span>
       </div>
       <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
@@ -60,12 +60,12 @@ const MetricsPanel = ({ facialData, behaviorData, communicationData, isVisible }
         {/* Facial Expression */}
         <div>
           <div className="text-xs font-medium mb-2 flex items-center gap-1.5">
-            <span>😊</span> Facial Expression
+            <Smile className="h-3.5 w-3.5" /> Facial Expression
           </div>
           <div className="space-y-2">
-            <MetricBar label="Confident" value={facialData.confident} color="green" />
-            <MetricBar label="Stressed" value={facialData.stressed} color="amber" />
-            <MetricBar label="Nervous" value={facialData.nervous} color="red" />
+            <MetricBar label="Confident" value={facialData.confident} color="green" icon={<TrendingUp className="h-3 w-3 text-green-500" />} />
+            <MetricBar label="Stressed" value={facialData.stressed} color="amber" icon={<AlertTriangle className="h-3 w-3 text-amber-500" />} />
+            <MetricBar label="Nervous" value={facialData.nervous} color="red" icon={<AlertTriangle className="h-3 w-3 text-red-500" />} />
           </div>
         </div>
         
