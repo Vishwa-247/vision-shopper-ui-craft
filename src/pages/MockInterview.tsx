@@ -519,6 +519,7 @@ import Container from "@/components/ui/Container";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
 const staticQuestions = {
@@ -598,6 +599,7 @@ enum InterviewStage {
 const MockInterview = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { session } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [stage, setStage] = useState<InterviewStage>(
     InterviewStage.TypeSelection
@@ -677,7 +679,10 @@ const MockInterview = () => {
 
       const resp = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify(payload),
       });
       if (!resp.ok) throw new Error(`Failed to generate questions (${resp.status})`);
