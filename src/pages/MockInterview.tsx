@@ -518,10 +518,51 @@ import {
 import Container from "@/components/ui/Container";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { gatewayAuthService } from "@/api/services/gatewayAuthService";
 import { useNavigate } from "react-router-dom";
+
+const CameraPreview: React.FC = () => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const init = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        if (!mounted) return;
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+      } catch (e: any) {
+        setError(e?.message || "Camera permission denied");
+      }
+    };
+    init();
+    return () => {
+      mounted = false;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+    };
+  }, []);
+
+  return (
+    <div className="rounded border p-2">
+      {error ? (
+        <div className="text-sm text-red-500">{error}</div>
+      ) : (
+        <video ref={videoRef} className="w-full" muted playsInline />
+      )}
+    </div>
+  );
+};
 
 // No static fallback questions — always use backend
 
@@ -786,10 +827,7 @@ const MockInterview = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {/* Preview only - no capture here for now */}
-                  <div className="rounded border p-2 text-sm text-muted-foreground">
-                    Your camera preview will appear when you start the interview.
-                  </div>
+                  <CameraPreview />
                 </CardContent>
               </Card>
             </div>
