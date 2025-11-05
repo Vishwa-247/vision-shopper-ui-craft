@@ -2,6 +2,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
+import { gatewayAuthService } from "@/api/services/gatewayAuthService";
 
 export interface AuthState {
   user: User | null;
@@ -90,6 +91,13 @@ export const useAuth = () => {
 
       // Immediately update auth state to reduce loading time
       updateAuthState(session, false);
+
+      // Kick off gateway auth silently when signed in
+      if (event === "SIGNED_IN" && session?.user?.email) {
+        gatewayAuthService.signInToGateway(session.user.email).catch((err) => {
+          console.warn("Gateway sign-in failed:", err);
+        });
+      }
 
       // Show welcome toast only for new sign-ins, not page refreshes
       if (event === "SIGNED_IN" && session && !hasShownWelcome) {
@@ -247,6 +255,7 @@ export const useAuth = () => {
 
     // Clear storage immediately
     clearAuthStorage();
+    gatewayAuthService.clearGatewayToken();
 
     try {
       const { error } = await supabase.auth.signOut();

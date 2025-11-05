@@ -520,6 +520,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { gatewayAuthService } from "@/api/services/gatewayAuthService";
 import { useNavigate } from "react-router-dom";
 
 const staticQuestions = {
@@ -643,6 +644,9 @@ const MockInterview = () => {
         data = { role: dataOrRole, techStack, experience, resumeSummary };
       }
 
+      // Ensure we have a Gateway token (separate from Supabase token)
+      const gatewayToken = await gatewayAuthService.ensureGatewayAuth(session?.user?.email || null);
+
       let endpoint = "";
       let payload: any = {};
       if (selectedInterviewType === "technical") {
@@ -681,7 +685,7 @@ const MockInterview = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          Authorization: `Bearer ${gatewayToken}`,
         },
         body: JSON.stringify(payload),
       });
