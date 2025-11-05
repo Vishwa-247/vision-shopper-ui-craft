@@ -948,6 +948,7 @@ const MockInterview = () => {
 
             <div className="space-y-6">
               <InterviewCapture
+                onRecordingChange={(v) => setIsRecording(v)}
                 onFaceFrame={async (jpegBase64) => {
                   try {
                     const res = await fetch('http://localhost:5000/analyze', {
@@ -960,9 +961,9 @@ const MockInterview = () => {
                     setMetricsData(prev => ({
                       ...prev,
                       facialData: {
-                        confident: (data.metrics?.confident ?? 0) * 100,
-                        stressed: (data.metrics?.stressed ?? 0) * 100,
-                        nervous: (data.metrics?.nervous ?? 0) * 100,
+                        confident: (data.metrics?.confident ?? 0),
+                        stressed: (data.metrics?.stressed ?? 0),
+                        nervous: (data.metrics?.nervous ?? 0),
                       },
                       behaviorData: {
                         blink_count: data.face_tracking?.blink_count ?? 0,

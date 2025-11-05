@@ -6,6 +6,7 @@ type Props = {
   faceIntervalMs?: number;
   wsEnabled?: boolean; // scaffold only, disabled by default
   wsUrl?: string;
+  onRecordingChange?: (recording: boolean) => void;
 };
 
 const InterviewCapture: React.FC<Props> = ({
@@ -31,6 +32,8 @@ const InterviewCapture: React.FC<Props> = ({
   const timerRef = useRef<number | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const [micEnabled, setMicEnabled] = useState(true);
+  const [camEnabled, setCamEnabled] = useState(true);
 
   useEffect(() => {
     const init = async () => {
@@ -70,6 +73,9 @@ const InterviewCapture: React.FC<Props> = ({
         await videoRef.current.play();
       }
     }
+    // Apply current toggle states to tracks if streams already exist
+    if (audioStream) audioStream.getAudioTracks().forEach(t => (t.enabled = micEnabled));
+    if (videoStream) videoStream.getVideoTracks().forEach(t => (t.enabled = camEnabled));
   };
 
   const startRecording = async () => {
@@ -102,6 +108,7 @@ const InterviewCapture: React.FC<Props> = ({
     mr.start(1000); // 1s chunks
     mediaRecorderRef.current = mr;
     setRecording(true);
+    if (typeof onRecordingChange === 'function') onRecordingChange(true);
 
     // start timer
     setRecordingTime(0);
@@ -146,6 +153,7 @@ const InterviewCapture: React.FC<Props> = ({
 
   const stopRecording = async () => {
     setRecording(false);
+    if (typeof onRecordingChange === 'function') onRecordingChange(false);
     if (timerRef.current) {
       window.clearInterval(timerRef.current);
       timerRef.current = null;
@@ -175,6 +183,7 @@ const InterviewCapture: React.FC<Props> = ({
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
+    if (!camEnabled) return; // don't capture when camera is off
     const w = video.videoWidth || 640;
     const h = video.videoHeight || 480;
     canvas.width = w;
@@ -203,6 +212,32 @@ const InterviewCapture: React.FC<Props> = ({
         </div>
       </div>
       <div className="flex gap-2">
+        <button
+          onClick={async () => {
+            try {
+              await ensureStreams();
+              const next = !micEnabled;
+              setMicEnabled(next);
+              if (audioStream) audioStream.getAudioTracks().forEach(t => (t.enabled = next));
+            } catch {}
+          }}
+          className={`px-3 py-2 rounded ${micEnabled ? 'bg-primary text-white' : 'bg-secondary text-foreground'}`}
+        >
+          {micEnabled ? 'Mic On' : 'Mic Off'}
+        </button>
+        <button
+          onClick={async () => {
+            try {
+              await ensureStreams();
+              const next = !camEnabled;
+              setCamEnabled(next);
+              if (videoStream) videoStream.getVideoTracks().forEach(t => (t.enabled = next));
+            } catch {}
+          }}
+          className={`px-3 py-2 rounded ${camEnabled ? 'bg-primary text-white' : 'bg-secondary text-foreground'}`}
+        >
+          {camEnabled ? 'Camera On' : 'Camera Off'}
+        </button>
         {!recording ? (
           <button onClick={startRecording} className="px-3 py-2 rounded bg-primary text-white">
             Start Interview (audio + camera analysis)
