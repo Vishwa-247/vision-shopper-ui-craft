@@ -79,5 +79,3 @@ export const gatewayAuthService = {
   clearGatewayToken: clearToken,
   isGatewayTokenValid: isValid,
 };
-
-

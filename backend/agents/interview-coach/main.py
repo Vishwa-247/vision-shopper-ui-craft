@@ -531,7 +531,7 @@ async def _call_gemini(prompt: str, timeout: float = 8.0) -> Dict[str, Any]:
     }
     async with httpx.AsyncClient(timeout=timeout) as client:
         resp = await client.post(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+            "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent",
             headers=headers,
             json=body,
         )
@@ -740,7 +740,7 @@ async def generate_hr(payload: Dict[str, Any]):
         job_role = payload.get("job_role", "Software Engineer")
         exp_level = payload.get("exp_level", "1-3")
         resume_summary = payload.get("resume_summary", "")
-        total = int(payload.get("total", 8))
+        total = int(payload.get("total", 10))
         prompt = f"""
 You are an expert HR interviewer. Generate {total} behavioral/HR interview questions for:
 Role: {job_role}

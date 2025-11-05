@@ -24,8 +24,8 @@ echo ✅ Activating virtual environment...
 call venv\Scripts\activate
 
 echo 📦 Installing/updating dependencies...
-pip install --upgrade pip -q
-pip install -r requirements.txt -q
+python -m pip install --upgrade pip --quiet 2>nul
+python -m pip install -r requirements.txt --quiet
 
 echo.
 echo ✅ Starting all services...

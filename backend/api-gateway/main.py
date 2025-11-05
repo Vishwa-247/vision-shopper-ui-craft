@@ -52,6 +52,8 @@ AGENT_SERVICES = {
 # JWT Configuration
 JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
 JWT_ALGORITHM = "HS256"
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -66,12 +68,38 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user_id: str = payload.get("sub")
+        # Prefer UUID if present in token; fallback to sub (email)
+        user_id: str = payload.get("uid") or payload.get("sub")
         if user_id is None:
             raise HTTPException(status_code=401, detail="Invalid token")
         return user_id
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+async def resolve_user_uuid_by_email(email: str) -> Optional[str]:
+    """Resolve Supabase auth user's UUID by email using Admin API."""
+    if not (SUPABASE_URL and SUPABASE_SERVICE_KEY):
+        return None
+    try:
+        # Admin list users by email (supported by Supabase Auth Admin API)
+        url = f"{SUPABASE_URL}/auth/v1/admin/users"
+        headers = {
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        }
+        params = {"email": email}
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, headers=headers, params=params)
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+            # Response may be list under key 'users' or array directly
+            users = data.get("users") if isinstance(data, dict) else data
+            if isinstance(users, list) and users:
+                return users[0].get("id")
+            return None
+    except Exception:
+        return None
 
 async def forward_to_agent(agent_name: str, path: str, method: str = "GET", data: dict = None, headers: dict = None):
     """Forward request to specific agent service"""
@@ -140,15 +168,19 @@ async def sign_in(credentials: dict):
     
     if not email or not password:
         raise HTTPException(status_code=400, detail="Email and password required")
-    
-    # Create access token
-    access_token = create_access_token(data={"sub": email})
+    # Resolve uuid if possible
+    uid = await resolve_user_uuid_by_email(email)
+    # Create access token (include uid claim when available)
+    token_payload = {"sub": email}
+    if uid:
+        token_payload["uid"] = uid
+    access_token = create_access_token(data=token_payload)
     
     return {
         "access_token": access_token,
         "token_type": "bearer",
         "user": {
-            "id": email,
+            "id": uid or email,
             "email": email,
             "name": email.split("@")[0].title()
         }
