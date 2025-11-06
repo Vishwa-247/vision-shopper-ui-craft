@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CourseSidebar } from '@/components/course/CourseSidebar';
 import { ContentRenderer } from '@/components/course/ContentRenderer';
 import { AudioPlayer } from '@/components/course/AudioPlayer';
+import { BrowserTTSPlayer } from '@/components/course/BrowserTTSPlayer';
 import { InteractiveQuiz } from '@/components/course/InteractiveQuiz';
 import { FlashcardViewer } from '@/components/course/FlashcardViewer';
 import { WordGame } from '@/components/course/WordGame';
@@ -207,6 +208,12 @@ const CourseDetailNew = () => {
   const selectedChapter = chapters.find(ch => ch.id === selectedChapterId);
   const shortPodcast = audio.find(a => a.audio_type === 'short_podcast');
   const fullLecture = audio.find(a => a.audio_type === 'full_lecture');
+  
+  // Check if we have audio scripts but no audio files (use browser TTS)
+  const shortPodcastScript = shortPodcast?.script_text || '';
+  const fullLectureScript = fullLecture?.script_text || '';
+  const hasAudioScripts = !!(shortPodcastScript || fullLectureScript);
+  const hasAudioFiles = !!(shortPodcast?.audio_url || fullLecture?.audio_url);
 
   return (
     <div className="min-h-screen bg-background">
@@ -282,23 +289,51 @@ const CourseDetailNew = () => {
 
               <TabsContent value="listen">
                 <div className="space-y-6">
-                  {shortPodcast && (
-                    <AudioPlayer
-                      audioUrl={shortPodcast.audio_url}
-                      title="Short Episode (5 min)"
-                      transcript={shortPodcast.transcript}
-                    />
+                  {/* Show pre-generated audio if available */}
+                  {hasAudioFiles && (
+                    <>
+                      {shortPodcast?.audio_url && (
+                        <AudioPlayer
+                          audioUrl={shortPodcast.audio_url}
+                          title="Short Episode (5 min)"
+                          transcript={shortPodcast.transcript}
+                        />
+                      )}
+                      {fullLecture?.audio_url && (
+                        <AudioPlayer
+                          audioUrl={fullLecture.audio_url}
+                          title="Full Lecture (20 min)"
+                          transcript={fullLecture.transcript}
+                        />
+                      )}
+                    </>
                   )}
-                  {fullLecture && (
-                    <AudioPlayer
-                      audioUrl={fullLecture.audio_url}
-                      title="Full Lecture (20 min)"
-                      transcript={fullLecture.transcript}
-                    />
+                  
+                  {/* Show browser TTS if scripts exist but no audio files */}
+                  {hasAudioScripts && !hasAudioFiles && (
+                    <>
+                      {shortPodcastScript && (
+                        <BrowserTTSPlayer
+                          script={shortPodcastScript}
+                          title="Short Episode (5 min)"
+                          audioType="short_podcast"
+                        />
+                      )}
+                      {fullLectureScript && (
+                        <BrowserTTSPlayer
+                          script={fullLectureScript}
+                          title="Full Lecture (20 min)"
+                          audioType="full_lecture"
+                        />
+                      )}
+                    </>
                   )}
-                  {!shortPodcast && !fullLecture && (
+                  
+                  {/* No audio at all */}
+                  {!hasAudioFiles && !hasAudioScripts && (
                     <Card className="p-8 text-center text-muted-foreground">
-                      Audio content not available for this course
+                      <p className="mb-2">Audio content not available for this course</p>
+                      <p className="text-sm">Audio will be generated when course generation completes.</p>
                     </Card>
                   )}
                 </div>
