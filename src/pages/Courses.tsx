@@ -78,6 +78,41 @@ const Courses = () => {
     }
   };
 
+  const handleDeleteCourse = async (courseId: string, courseTitle: string) => {
+    if (!confirm(`Are you sure you want to delete "${courseTitle}"? This action cannot be undone and will delete all course content including chapters, flashcards, and MCQs.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8000/courses/${courseId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to delete course');
+      }
+
+      toast({
+        title: "Course Deleted",
+        description: `"${courseTitle}" has been deleted successfully.`,
+      });
+
+      // Refresh the course list
+      fetchCourses();
+    } catch (error: any) {
+      console.error('Error deleting course:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete course. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const filterCourses = () => {
     let filtered = courses;
 
@@ -295,6 +330,13 @@ const Courses = () => {
                       <DropdownMenuItem onClick={() => navigate(`/course/${course.id}`)}>
                         <ExternalLink className="w-4 h-4 mr-2" />
                         View Course
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleDeleteCourse(course.id, course.title)}
+                        className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Course
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

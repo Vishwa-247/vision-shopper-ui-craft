@@ -236,6 +236,11 @@ async def get_course(course_id: str, user_id: str = Depends(verify_token)):
 async def get_course_content(course_id: str, user_id: str = Depends(verify_token)):
     return await forward_to_agent("course-generation", f"/courses/{course_id}/content", "GET")
 
+@app.delete("/courses/{course_id}")
+async def delete_course(course_id: str, user_id: str = Depends(verify_token)):
+    """Delete course and all related content"""
+    return await forward_to_agent("course-generation", f"/courses/{course_id}", "DELETE")
+
 # Interview Routes
 @app.post("/interviews/start")
 async def start_interview(interview_data: dict, user_id: str = Depends(verify_token)):

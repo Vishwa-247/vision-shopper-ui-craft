@@ -6,15 +6,16 @@ Fast parallel AI course generation using Gemini, ElevenLabs, and Brave APIs.
 Generates complete courses in ~40 seconds with audio, articles, quizzes, and games.
 """
 
-import os
+import asyncio
 import json
 import logging
-import asyncio
+import os
 import re
-from datetime import datetime
-from typing import Dict, List, Optional
 from collections import deque
+from datetime import datetime
 from pathlib import Path
+from typing import Dict, List, Optional
+
 from dotenv import load_dotenv
 
 # Load environment variables from backend root
@@ -22,11 +23,11 @@ backend_root = Path(__file__).parent.parent.parent
 env_path = backend_root / ".env"
 load_dotenv(dotenv_path=env_path)
 
+import httpx
 import uvicorn
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import httpx
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -57,8 +58,8 @@ if not GEMINI_API_KEYS:
 # Round-robin API key queue
 api_key_queue = deque(GEMINI_API_KEYS) if GEMINI_API_KEYS else deque()
 
-# Concurrency control - limit to 3 concurrent Gemini calls
-GEMINI_SEMAPHORE = asyncio.Semaphore(3)
+# Concurrency control - limit to 2 concurrent Gemini calls (reduced for reliability)
+GEMINI_SEMAPHORE = asyncio.Semaphore(2)
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 BRAVE_API_KEY = os.getenv("BRAVE_SEARCH_API_KEY")
@@ -73,17 +74,24 @@ def get_next_api_key() -> str:
     api_key_queue.rotate(-1)  # Move to back of queue
     return key
 
-async def call_gemini_with_retry(prompt: str, max_retries: int = 3) -> dict:
-    """Call Gemini with retry, key rotation, and concurrency control"""
+async def call_gemini_with_retry(prompt: str, max_retries: int = 5) -> dict:
+    """Call Gemini with retry, key rotation, rate limiting, and concurrency control"""
     async with GEMINI_SEMAPHORE:  # Limit concurrent calls
         for attempt in range(max_retries):
             try:
+                # Always add delay BEFORE every request to avoid rate limits
+                await asyncio.sleep(0.5)  # 500ms delay between requests
+                
                 api_key = get_next_api_key()
-                # Add small delay between attempts to avoid bursts
+                key_id = GEMINI_API_KEYS.index(api_key) + 1 if api_key in GEMINI_API_KEYS else "?"
+                
+                # Additional delay for retries with exponential backoff
                 if attempt > 0:
-                    wait_time = 2 ** attempt  # Exponential backoff: 2s, 4s, 8s
-                    logger.warning(f"Rate limited, retrying in {wait_time}s...")
+                    wait_time = 2 ** attempt  # Exponential backoff: 2s, 4s, 8s, 16s
+                    logger.warning(f"⏳ Rate limited, retrying in {wait_time}s (attempt {attempt+1}/{max_retries}) with key {key_id}...")
                     await asyncio.sleep(wait_time)
+                
+                logger.debug(f"🔑 Using API key {key_id} (attempt {attempt+1}/{max_retries})")
                 
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.post(
@@ -98,17 +106,22 @@ async def call_gemini_with_retry(prompt: str, max_retries: int = 3) -> dict:
                     if response.status_code == 429:
                         # Rate limited - try next key or retry
                         if attempt < max_retries - 1:
+                            logger.warning(f"⚠️ 429 rate limit hit, will retry with next key...")
                             continue
-                        raise HTTPException(status_code=429, detail="Gemini API rate limit exceeded")
+                        raise HTTPException(status_code=429, detail="Gemini API rate limit exceeded after all retries")
                     
                     response.raise_for_status()
+                    logger.debug(f"✅ Successfully called Gemini API (key {key_id})")
                     return response.json()
                     
             except httpx.HTTPStatusError as e:
                 if e.response.status_code == 429 and attempt < max_retries - 1:
+                    logger.warning(f"⚠️ HTTP 429 error, retrying... (attempt {attempt+1}/{max_retries})")
                     continue
+                logger.error(f"💥 HTTP Error {e.response.status_code}: {e.response.text[:200]}")
                 raise
             except Exception as e:
+                logger.error(f"💥 Error on attempt {attempt+1}/{max_retries}: {e}")
                 if attempt < max_retries - 1:
                     continue
                 raise
@@ -252,6 +265,68 @@ async def get_course_content(course_id: str):
             }
     except Exception as e:
         logger.error(f"Error getting course content: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/courses/{course_id}")
+async def delete_course(course_id: str):
+    """Delete course and all related content (cascade delete)"""
+    try:
+        logger.info(f"🗑️  Deleting course: {course_id}")
+        headers = {
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        }
+        
+        async with httpx.AsyncClient() as client:
+            # Delete course (will cascade to related tables if foreign keys are set up)
+            # If cascade doesn't work, delete related content first
+            try:
+                # Try to delete related content first (in case cascade isn't configured)
+                related_tables = [
+                    "course_chapters",
+                    "course_flashcards",
+                    "course_mcqs",
+                    "course_articles",
+                    "course_word_games",
+                    "course_audio",
+                    "course_resources",
+                    "course_suggestions",
+                    "course_generation_jobs"
+                ]
+                
+                for table in related_tables:
+                    try:
+                        await client.delete(
+                            f"{SUPABASE_URL}/rest/v1/{table}",
+                            headers=headers,
+                            params={"course_id": f"eq.{course_id}"}
+                        )
+                    except Exception as e:
+                        logger.debug(f"Could not delete from {table}: {e} (may not exist)")
+                
+                # Now delete the course itself
+                response = await client.delete(
+                    f"{SUPABASE_URL}/rest/v1/courses",
+                    headers=headers,
+                    params={"id": f"eq.{course_id}"}
+                )
+                
+                if response.status_code == 204:
+                    logger.info(f"✅ Course {course_id} deleted successfully")
+                    return {"success": True, "message": "Course deleted successfully"}
+                elif response.status_code == 404:
+                    logger.warning(f"⚠️ Course {course_id} not found")
+                    return {"success": False, "message": "Course not found"}
+                else:
+                    logger.error(f"❌ Failed to delete course: {response.status_code} - {response.text}")
+                    raise HTTPException(status_code=500, detail="Failed to delete course")
+                    
+            except httpx.HTTPStatusError as e:
+                logger.error(f"💥 HTTP error deleting course: {e.response.status_code} - {e.response.text}")
+                raise HTTPException(status_code=e.response.status_code, detail=str(e))
+                
+    except Exception as e:
+        logger.error(f"💥 Error deleting course: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 async def create_course(topic: str, user_id: str) -> str:
