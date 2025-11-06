@@ -304,20 +304,54 @@ h5 {
 }
 
 /* ============================================
-   CODE BLOCK STYLING - Enhanced for Course Content
+   MAC-STYLE CODE BLOCKS - White Background
    ============================================ */
 
-/* Code blocks with dark background */
+/* Code block container - Mac style */
 .prose pre {
-  @apply bg-gray-900 rounded-xl p-6 overflow-x-auto my-6 shadow-lg border border-gray-800;
-  background-color: #111827 !important;
+  @apply rounded-xl my-6 shadow-lg overflow-hidden;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  position: relative;
+}
+
+/* Mac-style header with traffic lights */
+.prose pre::before {
+  content: '';
+  display: block;
+  height: 36px;
+  background: linear-gradient(to bottom, #f9fafb 0%, #f3f4f6 100%);
+  border-bottom: 1px solid #e5e7eb;
+  background-image: 
+    radial-gradient(circle, #ff5f56 6px, transparent 6px),
+    radial-gradient(circle, #ffbd2e 6px, transparent 6px),
+    radial-gradient(circle, #27c93f 6px, transparent 6px);
+  background-position: 12px 12px, 32px 12px, 52px 12px;
+  background-repeat: no-repeat;
+  background-size: 12px 12px;
 }
 
 .prose pre code {
-  @apply text-sm font-mono leading-relaxed;
-  color: #e5e7eb !important;
-  background: transparent !important;
-  text-shadow: none;
+  @apply text-sm font-mono leading-relaxed block p-6;
+  color: #1f2937; /* dark gray text */
+  background: transparent;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* Dark mode - keep same Mac style but darker */
+.dark .prose pre {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark .prose pre::before {
+  background: linear-gradient(to bottom, #1e293b 0%, #0f172a 100%);
+  border-bottom-color: #334155;
+}
+
+.dark .prose pre code {
+  color: #e2e8f0; /* light gray text */
 }
 
 /* Inline code */
@@ -379,22 +413,18 @@ h5 {
    QUIZ STYLING - Correct/Wrong Colors
    ============================================ */
 
+/* ============================================
+   QUIZ ANSWER HIGHLIGHTING - Fixed Colors
+   ============================================ */
+
 .quiz-option-correct {
-  @apply border-2 border-green-500 bg-green-50 text-green-900 font-medium;
+  @apply border-2 bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-100 font-medium;
+  border-color: #22c55e !important; /* force green-500 */
 }
 
 .quiz-option-incorrect {
-  @apply border-2 border-red-500 bg-red-50 text-red-900;
-}
-
-@media (prefers-color-scheme: dark) {
-  .quiz-option-correct {
-    @apply bg-green-950 text-green-100 border-green-400;
-  }
-
-  .quiz-option-incorrect {
-    @apply bg-red-950 text-red-100 border-red-400;
-  }
+  @apply border-2 bg-red-50 text-red-900 dark:bg-red-950 dark:text-red-100;
+  border-color: #ef4444 !important; /* force red-500 */
 }
 
 /* ============================================

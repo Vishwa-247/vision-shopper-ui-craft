@@ -5,10 +5,12 @@ CREATE TABLE IF NOT EXISTS course_audio (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     course_id UUID REFERENCES courses(id) ON DELETE CASCADE NOT NULL,
     audio_type TEXT NOT NULL, -- 'short_podcast' or 'full_lecture'
-    script_text TEXT NOT NULL,
-    audio_url TEXT,
+    script TEXT NOT NULL, -- Script text for browser TTS
+    script_text TEXT, -- Legacy field, kept for compatibility
+    audio_url TEXT, -- NULL if TTS failed, will use browser TTS
     transcript TEXT,
-    voice_used TEXT DEFAULT 'Aria',
+    voice_id TEXT DEFAULT '9BWtsMINqrJLrRacOk9x',
+    voice_used TEXT DEFAULT 'Aria', -- Legacy field
     duration_seconds INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()

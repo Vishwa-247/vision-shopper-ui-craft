@@ -55,13 +55,63 @@ const CodeBlock = ({ language, value }: { language: string; value: string }) => 
 };
 
 export const ContentRenderer = ({ content }: ContentRendererProps) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  
   // Check if content is HTML (starts with < or contains HTML tags)
   const isHTML = content.trim().startsWith('<') || /^<[a-z][\s\S]*>/.test(content.trim());
+  
+  // Add copy buttons to code blocks after rendering
+  useEffect(() => {
+    if (!containerRef.current || !isHTML) return;
+    
+    const codeBlocks = containerRef.current.querySelectorAll('pre code');
+    codeBlocks.forEach((codeElement) => {
+      const pre = codeElement.parentElement;
+      if (!pre || pre.classList.contains('has-copy-button')) return;
+      
+      pre.classList.add('has-copy-button', 'relative', 'group');
+      
+      const copyButton = document.createElement('button');
+      copyButton.className = 'absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-xs font-medium flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-gray-700';
+      copyButton.innerHTML = `
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+        </svg>
+        <span>Copy</span>
+      `;
+      
+      const codeText = codeElement.textContent || '';
+      let copied = false;
+      
+      copyButton.addEventListener('click', async () => {
+        await navigator.clipboard.writeText(codeText);
+        copied = true;
+        copyButton.innerHTML = `
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          <span>Copied</span>
+        `;
+        setTimeout(() => {
+          copied = false;
+          copyButton.innerHTML = `
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+            </svg>
+            <span>Copy</span>
+          `;
+        }, 2000);
+      });
+      
+      pre.appendChild(copyButton);
+    });
+  }, [content, isHTML]);
   
   if (isHTML) {
     // Render HTML directly with proper styling
     return (
       <div 
+        ref={containerRef}
         className="prose prose-slate dark:prose-invert max-w-none"
         dangerouslySetInnerHTML={{ __html: content }}
       />

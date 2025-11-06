@@ -64,13 +64,29 @@ const CourseGenerator = () => {
           setCurrentStep(step);
 
           if (status === 'completed' && progress >= 100) {
-            toast.success("Course ready!");
+            setIsGenerating(false);
+            setLoading(false);
+            
+            // Calculate generation duration
+            const generationStart = localStorage.getItem(`course_gen_start_${courseId}`);
+            const generationDuration = generationStart 
+              ? Math.round((Date.now() - parseInt(generationStart)) / 1000)
+              : 0;
+            
+            // Show success toast with stats
+            toast.success("🎉 Course Ready!", {
+              description: `Generated successfully in ${generationDuration}s`,
+              duration: 5000,
+            });
+            
+            // Navigate after 1 second
             setTimeout(() => {
               navigate(`/course/${courseId}`);
             }, 1000);
           } else if (status === 'failed') {
             toast.error("Course generation failed");
             setIsGenerating(false);
+            setLoading(false);
           }
         }
       )
@@ -113,6 +129,11 @@ const CourseGenerator = () => {
 
       const data = await response.json();
       setCourseId(data.courseId);
+      
+      // Store generation start time for duration calculation
+      if (data.courseId) {
+        localStorage.setItem(`course_gen_start_${data.courseId}`, Date.now().toString());
+      }
 
       toast.success("Course generation started!");
 

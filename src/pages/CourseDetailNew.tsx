@@ -210,8 +210,8 @@ const CourseDetailNew = () => {
   const fullLecture = audio.find(a => a.audio_type === 'full_lecture');
   
   // Check if we have audio scripts but no audio files (use browser TTS)
-  const shortPodcastScript = shortPodcast?.script_text || '';
-  const fullLectureScript = fullLecture?.script_text || '';
+  const shortPodcastScript = shortPodcast?.script || shortPodcast?.script_text || '';
+  const fullLectureScript = fullLecture?.script || fullLecture?.script_text || '';
   const hasAudioScripts = !!(shortPodcastScript || fullLectureScript);
   const hasAudioFiles = !!(shortPodcast?.audio_url || fullLecture?.audio_url);
 

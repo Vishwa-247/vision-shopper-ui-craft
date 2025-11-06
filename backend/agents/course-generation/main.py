@@ -522,14 +522,18 @@ async def generate_in_parallel(course_id: str, topic: str, user_id: str):
                 audio_records.append({
                     "course_id": course_id,
                     "audio_type": "short_podcast",
-                    "script_text": audio_scripts.get("short", ""),
+                    "script": audio_scripts.get("short", ""),
+                    "script_text": audio_scripts.get("short", ""),  # Legacy field
+                    "audio_url": None,  # Browser will use speechSynthesis API
                     "duration_seconds": 300,
                 })
             if audio_scripts.get("long"):
                 audio_records.append({
                     "course_id": course_id,
                     "audio_type": "full_lecture",
-                    "script_text": audio_scripts.get("long", ""),
+                    "script": audio_scripts.get("long", ""),
+                    "script_text": audio_scripts.get("long", ""),  # Legacy field
+                    "audio_url": None,  # Browser will use speechSynthesis API
                     "duration_seconds": 1200,
                 })
             
@@ -586,11 +590,16 @@ async def generate_in_parallel(course_id: str, topic: str, user_id: str):
         # STEP 6: Finalize
         duration = int((datetime.now() - start_time).total_seconds())
         
+        # Calculate estimated completion time based on chapter count
+        chapter_count = len(outline.get("chapters", []))
+        estimated_minutes = chapter_count * 15  # 15 minutes per chapter
+        
         await update_course_field(course_id, {
             "status": "published",
             "generation_duration_seconds": duration,
             "articles_generated": True,
-            "games_generated": True
+            "games_generated": True,
+            "completion_time_estimate": estimated_minutes  # Estimated reading time in minutes
         })
         
         await finalize_job(course_id, duration)
