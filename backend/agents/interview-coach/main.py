@@ -297,7 +297,7 @@ async def get_interview(interview_id: str):
             if interview_id not in interview_sessions:
                 raise HTTPException(status_code=404, detail="Interview not found")
             return {"success": True, "interview": interview_sessions[interview_id]}
-        
+    
     except HTTPException:
         raise
     except Exception as e:
