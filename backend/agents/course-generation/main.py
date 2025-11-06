@@ -419,26 +419,25 @@ async def generate_in_parallel(course_id: str, topic: str, user_id: str):
                 generate_tts(course_id, audio_scripts.get("long", ""), "full_lecture"),
                 return_exceptions=True
             )
-            # Only set audio_generated if at least one TTS succeeded
-            audio_success = any(
-                result is True or (isinstance(result, Exception) and "generated" in str(result).lower())
-                for result in results
-            )
-            # Check if audio was actually created in database
-            try:
-                async with httpx.AsyncClient() as client:
-                    check_response = await client.get(
-                        f"{SUPABASE_URL}/rest/v1/course_audio?course_id=eq.{course_id}",
-                        headers={
-                            "apikey": SUPABASE_SERVICE_KEY,
-                            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                        }
-                    )
-                    if check_response.status_code == 200:
-                        audio_data = check_response.json()
-                        audio_success = len(audio_data) > 0
-            except:
-                pass  # If check fails, rely on results
+            # Check if any TTS generation succeeded (returned True)
+            audio_success = any(result is True for result in results)
+            
+            # Also verify by checking if audio was actually created in database
+            if not audio_success:
+                try:
+                    async with httpx.AsyncClient() as client:
+                        check_response = await client.get(
+                            f"{SUPABASE_URL}/rest/v1/course_audio?course_id=eq.{course_id}",
+                            headers={
+                                "apikey": SUPABASE_SERVICE_KEY,
+                                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                            }
+                        )
+                        if check_response.status_code == 200:
+                            audio_data = check_response.json()
+                            audio_success = len(audio_data) > 0
+                except Exception as e:
+                    logger.debug(f"Could not verify audio in database: {e}")
             
             if audio_success:
                 await update_course_field(course_id, {"audio_generated": True})
@@ -752,8 +751,18 @@ async def generate_tts(course_id: str, script: str, audio_type: str):
             )
             
             if response.status_code == 401:
-                logger.error("Invalid ElevenLabs API key - check your .env file")
-                return
+                error_detail = ""
+                try:
+                    error_json = response.json()
+                    error_detail = error_json.get("detail", {}).get("message", "") or str(error_json)
+                except:
+                    error_detail = response.text[:200] if hasattr(response, 'text') else ""
+                
+                if "abuse" in error_detail.lower() or "free tier" in error_detail.lower():
+                    logger.warning(f"ElevenLabs abuse detection triggered: {error_detail[:150]}")
+                else:
+                    logger.error(f"Invalid ElevenLabs API key (401): {error_detail[:150]}")
+                return False
             
             if response.status_code == 200:
                 audio_data = response.content
