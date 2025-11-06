@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, ChevronLeft } from 'lucide-react';
+import { Loader2, ChevronLeft, CheckCircle2 } from 'lucide-react';
 import Container from '@/components/ui/Container';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CourseSidebar } from '@/components/course/CourseSidebar';
 import { ContentRenderer } from '@/components/course/ContentRenderer';
@@ -35,7 +36,18 @@ const CourseDetailNew = () => {
 
     loadCourse();
     subscribeToProgress();
+    loadCompletedChapters();
   }, [id]);
+
+  useEffect(() => {
+    if (chapters.length > 0) {
+      // Calculate progress based on completed chapters
+      const progressValue = Math.round((completedChapters.length / chapters.length) * 100);
+      setProgress(progressValue);
+    } else {
+      setProgress(0);
+    }
+  }, [chapters, completedChapters]);
 
   const loadCourse = async () => {
     try {
@@ -56,6 +68,63 @@ const CourseDetailNew = () => {
       toast.error('Failed to load course');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadCompletedChapters = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !id) return;
+
+      const { data, error } = await supabase
+        .from('chapter_completion')
+        .select('chapter_id')
+        .eq('course_id', id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      if (data) {
+        setCompletedChapters(data.map(item => item.chapter_id));
+      }
+    } catch (error) {
+      console.error('Error loading completed chapters:', error);
+    }
+  };
+
+  const handleMarkComplete = async (chapterId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !id) {
+        toast.error('Please sign in to mark chapters as complete');
+        return;
+      }
+
+      // Check if already completed
+      if (completedChapters.includes(chapterId)) {
+        toast.info('This chapter is already marked as complete');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('chapter_completion')
+        .upsert({
+          user_id: user.id,
+          course_id: id,
+          chapter_id: chapterId,
+        }, {
+          onConflict: 'user_id,chapter_id'
+        });
+
+      if (error) throw error;
+
+      // Update local state
+      setCompletedChapters(prev => [...prev, chapterId]);
+      
+      toast.success('Chapter marked as complete! 🎉');
+    } catch (error: any) {
+      console.error('Error marking chapter as complete:', error);
+      toast.error(error.message || 'Failed to mark chapter as complete');
     }
   };
 
@@ -154,7 +223,7 @@ const CourseDetailNew = () => {
           chapters={chapters}
           currentChapterId={selectedChapterId || undefined}
           onChapterSelect={setSelectedChapterId}
-          progress={45}
+          progress={progress}
           completedChapters={completedChapters}
         />
 
@@ -178,7 +247,27 @@ const CourseDetailNew = () => {
               <TabsContent value="learn">
                 {selectedChapter ? (
                   <Card className="p-8">
-                    <h2 className="text-3xl font-bold mb-6">{selectedChapter.title}</h2>
+                    <div className="flex items-start justify-between mb-6">
+                      <h2 className="text-3xl font-bold flex-1">{selectedChapter.title}</h2>
+                      <Button
+                        onClick={() => handleMarkComplete(selectedChapter.id)}
+                        variant={completedChapters.includes(selectedChapter.id) ? "secondary" : "default"}
+                        disabled={completedChapters.includes(selectedChapter.id)}
+                        className="ml-4"
+                      >
+                        {completedChapters.includes(selectedChapter.id) ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                            Completed
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                            Mark as Complete
+                          </>
+                        )}
+                      </Button>
+                    </div>
                     <ContentRenderer content={selectedChapter.content} />
                   </Card>
                 ) : (
