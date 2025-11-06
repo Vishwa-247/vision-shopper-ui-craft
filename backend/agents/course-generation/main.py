@@ -201,7 +201,7 @@ async def call_groq_with_retry(prompt: str, max_retries: int = 3) -> dict:
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": "llama-3.3-70b-versatile",
+                        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
                         "messages": [{"role": "user", "content": prompt}],
                         "temperature": 0.7
                     }
