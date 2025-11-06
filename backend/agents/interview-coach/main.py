@@ -284,14 +284,14 @@ async def get_interview(interview_id: str):
                 .eq("session_id", interview_id)\
                 .order("question_index")\
                 .execute()
-            
-            return {
-                "success": True,
+        
+        return {
+            "success": True,
                 "interview": {
                     **session,
                     "responses": responses.data if responses.data else []
                 }
-            }
+        }
         else:
             # Fallback to memory
             if interview_id not in interview_sessions:
@@ -325,9 +325,9 @@ async def submit_answer(
             session = session_data.data[0]
         else:
             # Fallback to memory
-            if interview_id not in interview_sessions:
-                raise HTTPException(status_code=404, detail="Interview not found")
-            session = interview_sessions[interview_id]
+        if interview_id not in interview_sessions:
+            raise HTTPException(status_code=404, detail="Interview not found")
+        session = interview_sessions[interview_id]
         
         # Get questions from session
         questions = session.get("questions_data", {}).get("questions", [])
@@ -426,7 +426,7 @@ async def submit_answer(
                 }
                 if is_complete:
                     update_data["completed_at"] = datetime.utcnow().isoformat()
-                
+        
                 supabase.table("interview_sessions").update(update_data).eq("id", interview_id).execute()
                 logger.info(f"✅ Progress updated: {next_idx}/{len(questions)}")
                 
@@ -468,13 +468,13 @@ async def analyze_interview(interview_id: str, analysis_data: dict):
             # Get session from database
             session_result = supabase.table("interview_sessions").select("*").eq("id", interview_id).execute()
             if not session_result.data:
-                raise HTTPException(status_code=404, detail="Interview not found")
-            
+            raise HTTPException(status_code=404, detail="Interview not found")
+        
             session = session_result.data[0]
-            
+        
             if session.get("status") != "completed":
-                raise HTTPException(status_code=400, detail="Interview not completed")
-            
+            raise HTTPException(status_code=400, detail="Interview not completed")
+        
             # Get all responses from database
             responses = supabase.table("interview_responses")\
                 .select("*")\
@@ -621,7 +621,7 @@ Provide feedback in this exact JSON format:
                     return feedback
                 
                 # If result has different structure, extract feedback fields
-                feedback = {
+    feedback = {
                     "score": result.get("score", 75),
                     "word_count": word_count,
                     "strengths": result.get("strengths", ["AI analysis completed"]),
