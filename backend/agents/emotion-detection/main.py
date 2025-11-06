@@ -105,12 +105,24 @@ def _try_load_model(path: str) -> bool:
     global model, MODEL_LOADED, MODEL_PATH
     MODEL_PATH = path
     try:
-        # Resolve path - handle both absolute and relative paths
-        p = Path(path)
+        # Sanitize incoming path from env/user (handle quotes and backslashes)
+        raw = str(path).strip().strip('"').strip("'")
+        # First attempt: as-is
+        p = Path(raw)
+        # If relative, make it relative to script directory
         if not p.is_absolute():
-            # If relative, make it relative to script directory
-            p = Path(__file__).parent / path
-        p = p.resolve()  # Resolve to absolute path
+            p = Path(__file__).parent / p
+        p = p.resolve()
+        
+        # Second attempt: convert backslashes to forward slashes (avoids \f issues)
+        if not p.exists():
+            alt = Path(raw.replace('\\', '/'))
+            if not alt.is_absolute():
+                alt = Path(__file__).parent / alt
+            alt = alt.resolve()
+            logger.info(f"Trying alternate normalized path: {alt}")
+            if alt.exists():
+                p = alt
         
         if not p.exists():
             logger.warning(f"FER model not found at {p}. Using mock predictions.")
