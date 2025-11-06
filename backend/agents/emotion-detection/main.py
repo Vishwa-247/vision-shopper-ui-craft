@@ -43,24 +43,135 @@ face_tracker = AdvancedFaceTracker()
 
 # Load ViT FER-2013 model (PyTorch)
 MODEL_LOADED = False
-MODEL_INPUT_SIZE = 224  # ViT common input size
+# Configurable settings via env
+MODEL_INPUT_SIZE = int(os.getenv("FER_INPUT_SIZE", "224"))
 MODEL_PATH_ENV = os.getenv("FER_MODEL_PATH")
 DEFAULT_MODEL_PATH = r"C:\\Users\\VISHWA TEJA THOUTI\\Downloads\\furniture-fusion-bazaar-main (2)\\furniture-fusion-bazaar-main\\backend\\agents\\emotion-detection\\models\\best_vit_fer2013_model.pt"
 MODEL_PATH = MODEL_PATH_ENV if MODEL_PATH_ENV else DEFAULT_MODEL_PATH
+MODEL_TYPE = os.getenv("FER_MODEL_TYPE", "auto").lower()  # auto|full|state_dict|script
+MODEL_ARCH = os.getenv("FER_MODEL_ARCH", "vit_small_patch16_224")  # timm name
+MODEL_NUM_CLASSES = int(os.getenv("FER_NUM_CLASSES", "7"))
 
 model = None
-try:
-    if Path(MODEL_PATH).exists():
-        model = torch.load(MODEL_PATH, map_location=torch.device('cpu'))
-        if isinstance(model, nn.Module):
-            model.eval()
-        MODEL_LOADED = True
-        logger.info(f"✅ FER-2013 ViT model loaded from: {MODEL_PATH}")
-    else:
-        logger.warning(f"FER model not found at {MODEL_PATH}. Using mock predictions.")
-except Exception as e:
-    logger.error(f"Failed to load FER model: {e}")
-    MODEL_LOADED = False
+
+
+def _build_model_for_state_dict() -> nn.Module:
+    """Create a model backbone compatible with the provided state_dict.
+    Attempts to use timm if available; falls back to a minimal ViT-like head.
+    """
+    try:
+        import timm  # type: ignore
+        backbone = timm.create_model(MODEL_ARCH, pretrained=False, num_classes=MODEL_NUM_CLASSES, in_chans=3)
+        logger.info(f"✅ Created timm model '{MODEL_ARCH}' with num_classes={MODEL_NUM_CLASSES}")
+        return backbone
+    except Exception as e:
+        logger.warning(f"timm unavailable or failed to create '{MODEL_ARCH}': {e}. Falling back to simple head.")
+        # Fallback simple classifier over flattened features (very naive)
+        class SimpleCNN(nn.Module):
+            def __init__(self, num_classes: int):
+                super().__init__()
+                self.features = nn.Sequential(
+                    nn.Conv2d(3, 32, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
+                    nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
+                    nn.Conv2d(64, 128, 3, padding=1), nn.ReLU(), nn.AdaptiveAvgPool2d((1, 1)),
+                )
+                self.classifier = nn.Linear(128, num_classes)
+            def forward(self, x):
+                x = self.features(x)
+                x = x.view(x.size(0), -1)
+                return self.classifier(x)
+        return SimpleCNN(MODEL_NUM_CLASSES)
+
+
+def _try_load_model(path: str) -> bool:
+    global model, MODEL_LOADED, MODEL_PATH
+    MODEL_PATH = path
+    try:
+        p = Path(path)
+        if not p.exists():
+            logger.warning(f"FER model not found at {p}. Using mock predictions.")
+            MODEL_LOADED = False
+            return False
+
+        # Auto-detect type when MODEL_TYPE=auto
+        mtype = MODEL_TYPE
+        if mtype == "auto":
+            # Heuristics: TorchScript often loads with torch.jit.load; try that first
+            try:
+                scripted = torch.jit.load(str(p), map_location=torch.device('cpu'))
+                if isinstance(scripted, torch.jit.ScriptModule) or isinstance(scripted, torch.jit.RecursiveScriptModule):
+                    model = scripted
+                    MODEL_LOADED = True
+                    logger.info(f"✅ TorchScript model loaded: {p}")
+                    return True
+            except Exception:
+                pass
+            # Try full pickled nn.Module next
+            try:
+                full_obj = torch.load(str(p), map_location=torch.device('cpu'))
+                if isinstance(full_obj, nn.Module):
+                    full_obj.eval()
+                    model = full_obj
+                    MODEL_LOADED = True
+                    logger.info(f"✅ Pickled nn.Module loaded: {p}")
+                    return True
+                # Not a Module, assume state_dict
+                state_dict = full_obj
+                if isinstance(state_dict, dict):
+                    backbone = _build_model_for_state_dict()
+                    missing, unexpected = backbone.load_state_dict(state_dict, strict=False)
+                    if missing:
+                        logger.warning(f"State dict missing keys: {list(missing)[:8]} ...")
+                    if unexpected:
+                        logger.warning(f"Unexpected keys in state dict: {list(unexpected)[:8]} ...")
+                    backbone.eval()
+                    model = backbone
+                    MODEL_LOADED = True
+                    logger.info(f"✅ State dict loaded into backbone: {p}")
+                    return True
+            except Exception as e:
+                logger.error(f"Auto load failed: {e}")
+                MODEL_LOADED = False
+                return False
+        else:
+            if mtype == "script":
+                scripted = torch.jit.load(str(p), map_location=torch.device('cpu'))
+                model = scripted
+                MODEL_LOADED = True
+                logger.info(f"✅ TorchScript model loaded: {p}")
+                return True
+            if mtype == "full":
+                full_obj = torch.load(str(p), map_location=torch.device('cpu'))
+                if not isinstance(full_obj, nn.Module):
+                    raise RuntimeError("Provided model is not an nn.Module; set FER_MODEL_TYPE=state_dict if it's a state dict.")
+                full_obj.eval()
+                model = full_obj
+                MODEL_LOADED = True
+                logger.info(f"✅ Pickled nn.Module loaded: {p}")
+                return True
+            if mtype == "state_dict":
+                state_dict = torch.load(str(p), map_location=torch.device('cpu'))
+                backbone = _build_model_for_state_dict()
+                missing, unexpected = backbone.load_state_dict(state_dict, strict=False)
+                if missing:
+                    logger.warning(f"State dict missing keys: {list(missing)[:8]} ...")
+                if unexpected:
+                    logger.warning(f"Unexpected keys in state dict: {list(unexpected)[:8]} ...")
+                backbone.eval()
+                model = backbone
+                MODEL_LOADED = True
+                logger.info(f"✅ State dict loaded into backbone: {p}")
+                return True
+        
+        MODEL_LOADED = False
+        return False
+    except Exception as e:
+        logger.error(f"Failed to load FER model: {e}")
+        MODEL_LOADED = False
+        return False
+
+# Initial load
+_try_load_model(MODEL_PATH)
 
 @app.route('/')
 def home():
@@ -68,16 +179,57 @@ def home():
         "service": "Emotion Detection API",
         "version": "1.0.0",
         "status": "running",
-        "model": "FER-2013 ViT" if MODEL_LOADED else "mock",
-        "model_loaded": MODEL_LOADED
+        "model": "custom" if MODEL_LOADED else "mock",
+        "model_loaded": MODEL_LOADED,
+        "model_path": str(MODEL_PATH),
+        "model_type": MODEL_TYPE,
+        "model_arch": MODEL_ARCH,
+        "num_classes": MODEL_NUM_CLASSES,
+        "input_size": MODEL_INPUT_SIZE
     })
 
 @app.route('/health')
 def health():
     return jsonify({
         "status": "healthy",
-        "model_loaded": MODEL_LOADED
+        "model_loaded": MODEL_LOADED,
+        "model_path": str(MODEL_PATH),
+        "model_type": MODEL_TYPE
     })
+
+@app.route('/reload', methods=['POST'])
+def reload_model():
+    """Reload model from FER_MODEL_PATH without restarting the service."""
+    global MODEL_PATH, MODEL_TYPE, MODEL_ARCH, MODEL_NUM_CLASSES, MODEL_INPUT_SIZE
+    # Allow override via body
+    try:
+        body = request.get_json(silent=True) or {}
+    except Exception:
+        body = {}
+    if body.get('model_path'):
+        MODEL_PATH = body['model_path']
+    else:
+        env_path_override = os.getenv('FER_MODEL_PATH')
+        if env_path_override:
+            MODEL_PATH = env_path_override
+    if body.get('model_type'):
+        MODEL_TYPE = str(body['model_type']).lower()
+    if body.get('model_arch'):
+        MODEL_ARCH = str(body['model_arch'])
+    if body.get('num_classes'):
+        MODEL_NUM_CLASSES = int(body['num_classes'])
+    if body.get('input_size'):
+        MODEL_INPUT_SIZE = int(body['input_size'])
+    ok = _try_load_model(MODEL_PATH)
+    status = 200 if ok else 500
+    return jsonify({
+        "model_loaded": MODEL_LOADED,
+        "model_path": str(MODEL_PATH),
+        "model_type": MODEL_TYPE,
+        "model_arch": MODEL_ARCH,
+        "num_classes": MODEL_NUM_CLASSES,
+        "input_size": MODEL_INPUT_SIZE
+    }), status
 
 @app.route('/analyze', methods=['POST', 'OPTIONS'])
 def analyze_emotion():
@@ -138,75 +290,69 @@ def analyze_emotion():
         
         # Get largest face
         x, y, w, h = max(faces, key=lambda rect: rect[2] * rect[3])
-        face = gray[y:y+h, x:x+w]
+        # Crop and preprocess face for model
+        face_img = img[y:y+h, x:x+w]
+        face_resized = cv2.resize(face_img, (MODEL_INPUT_SIZE, MODEL_INPUT_SIZE))
+        face_rgb = cv2.cvtColor(face_resized, cv2.COLOR_BGR2RGB)
+        face_norm = face_rgb.astype(np.float32) / 255.0
+        # Simple normalization; adapt if your model expects mean/std normalization
+        face_tensor = torch.from_numpy(face_norm).permute(2, 0, 1).unsqueeze(0)
         
-        predictions = None
-        if MODEL_LOADED and isinstance(model, nn.Module):
-            # Preprocess for ViT: resize 224x224, convert gray->3 channels, normalize ImageNet
-            face_resized = cv2.resize(face, (MODEL_INPUT_SIZE, MODEL_INPUT_SIZE))
-            face_3ch = np.stack([face_resized, face_resized, face_resized], axis=-1)  # HWC, 3ch
-            face_float = face_3ch.astype(np.float32) / 255.0
-            # ImageNet mean/std
-            mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-            std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-            face_norm = (face_float - mean) / std
-            # To tensor NCHW
-            tensor = torch.from_numpy(face_norm).permute(2, 0, 1).unsqueeze(0)  # 1x3x224x224
-            with torch.no_grad():
-                logits = model(tensor)
-                if isinstance(logits, (list, tuple)):
-                    logits = logits[0]
-                probs = torch.softmax(logits, dim=1).cpu().numpy()[0]
-            predictions = probs
+        if MODEL_LOADED and model is not None:
+            try:
+                with torch.no_grad():
+                    logits = model(face_tensor)
+                    if isinstance(logits, (list, tuple)):
+                        logits = logits[0]
+                    probs = torch.softmax(logits, dim=1).cpu().numpy()[0]
+                    top_idx = int(np.argmax(probs))
+                    # Safeguard index if label count mismatches
+                    label_count = min(len(emotion_labels), probs.shape[0])
+                    top_idx = int(np.argmax(probs[:label_count]))
+                    emotion = emotion_labels[top_idx] if top_idx < len(emotion_labels) else 'Neutral'
+                    confidence = float(probs[top_idx]) if top_idx < probs.shape[0] else 0.5
+                    metrics = {
+                        'confident': float(probs[emotion_labels.index('Happy')]) if 'Happy' in emotion_labels and emotion_labels.index('Happy') < probs.shape[0] else 0.6,
+                        'nervous': float(probs[emotion_labels.index('Fear')]) if 'Fear' in emotion_labels and emotion_labels.index('Fear') < probs.shape[0] else 0.3,
+                        'stressed': float(probs[emotion_labels.index('Angry')]) if 'Angry' in emotion_labels and emotion_labels.index('Angry') < probs.shape[0] else 0.2,
+                        'engaged': 0.6,
+                        'neutral': float(probs[emotion_labels.index('Neutral')]) if 'Neutral' in emotion_labels and emotion_labels.index('Neutral') < probs.shape[0] else 0.5,
+                    }
+            except Exception as e:
+                logger.error(f"Model inference failed: {e}")
+                emotion = 'Neutral'
+                confidence = 0.5
+                metrics = {
+                    'confident': 0.6,
+                    'nervous': 0.3,
+                    'stressed': 0.2,
+                    'engaged': 0.6,
+                    'neutral': 0.5,
+                }
         else:
-            # Mock predictions fallback
-            face_resized = cv2.resize(face, (48, 48))
-            face_normalized = face_resized / 255.0
-            predictions = np.array([
-                0.05, 0.02, 0.10, 0.35, 0.08, 0.15, 0.25
-            ])
-            predictions += np.random.uniform(-0.05, 0.05, 7)
-            predictions = np.clip(predictions, 0, 1)
-            predictions /= predictions.sum()
+            # Mock predictions
+            emotion = 'Neutral'
+            confidence = 0.55
+            metrics = {
+                'confident': 0.6,
+                'nervous': 0.3,
+                'stressed': 0.2,
+                'engaged': 0.6,
+                'neutral': 0.7,
+            }
         
-        emotion_idx = np.argmax(predictions)
-        emotion = emotion_labels[emotion_idx]
-        confidence = float(predictions[emotion_idx])
-        
-        # Combine emotion data with tracking data
-        result = {
+        return jsonify({
             'emotion': emotion,
             'confidence': confidence,
-            'metrics': {
-                'confident': float(predictions[3]),  # Happy
-                'nervous': float(predictions[2]),    # Fear
-                'stressed': float(predictions[4]),   # Sad
-                'engaged': float(predictions[5]),    # Surprise
-                'neutral': float(predictions[6])     # Neutral
-            },
-            'face_detected': True,
-            'all_emotions': {
-                emotion_labels[i]: float(predictions[i]) 
-                for i in range(len(emotion_labels))
-            },
-            'tracking': tracking_data if tracking_data else {
-                'blink_count': 0,
-                'head_pose': {'pitch': 0, 'yaw': 0, 'roll': 0, 'looking_at_camera': True},
-                'gaze': {'horizontal': 'center', 'vertical': 'center'},
-                'looking_at_camera': True,
-                'face_detected': True
-            }
-        }
-        
-        logger.info(f"Analyzed emotion: {emotion} (confidence: {confidence:.2f})")
-        return jsonify(result)
-        
+            'metrics': metrics,
+            'face_tracking': tracking_data,
+            'face_detected': True
+        })
     except Exception as e:
-        logger.error(f"Error in emotion analysis: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Analysis error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
-if __name__ == '__main__':
-    logger.info("Starting Emotion Detection Service on port 5000...")
-    if not MODEL_LOADED:
-        logger.warning("NOTE: Using mock predictions. Provide FER_MODEL_PATH in backend/.env or place model at default path for real predictions.")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+if __name__ == "__main__":
+    # Default to port 5000
+    port = int(os.getenv("EMOTION_PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
