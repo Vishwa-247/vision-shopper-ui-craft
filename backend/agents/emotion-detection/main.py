@@ -48,7 +48,8 @@ MODEL_INPUT_SIZE = int(os.getenv("FER_INPUT_SIZE", "224"))
 MODEL_PATH_ENV = os.getenv("FER_MODEL_PATH")
 # Default to relative path from script location
 DEFAULT_MODEL_PATH = Path(__file__).parent / "models" / "best_vit_fer2013_model.pt"
-MODEL_PATH = MODEL_PATH_ENV if MODEL_PATH_ENV else str(DEFAULT_MODEL_PATH)
+# Resolve to absolute path immediately
+MODEL_PATH = MODEL_PATH_ENV if MODEL_PATH_ENV else str(DEFAULT_MODEL_PATH.resolve())
 MODEL_TYPE = os.getenv("FER_MODEL_TYPE", "auto").lower()  # auto|full|state_dict|script
 MODEL_ARCH = os.getenv("FER_MODEL_ARCH", "google/vit-base-patch16-224-in21k")  # transformers model name or timm name
 MODEL_NUM_CLASSES = int(os.getenv("FER_NUM_CLASSES", "7"))

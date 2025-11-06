@@ -284,14 +284,14 @@ async def get_interview(interview_id: str):
                 .eq("session_id", interview_id)\
                 .order("question_index")\
                 .execute()
-        
-        return {
-            "success": True,
+            
+            return {
+                "success": True,
                 "interview": {
                     **session,
                     "responses": responses.data if responses.data else []
                 }
-        }
+            }
         else:
             # Fallback to memory
             if interview_id not in interview_sessions:
@@ -325,9 +325,9 @@ async def submit_answer(
             session = session_data.data[0]
         else:
             # Fallback to memory
-        if interview_id not in interview_sessions:
-            raise HTTPException(status_code=404, detail="Interview not found")
-        session = interview_sessions[interview_id]
+            if interview_id not in interview_sessions:
+                raise HTTPException(status_code=404, detail="Interview not found")
+            session = interview_sessions[interview_id]
         
         # Get questions from session
         questions = session.get("questions_data", {}).get("questions", [])
