@@ -621,7 +621,7 @@ Provide feedback in this exact JSON format:
                     return feedback
                 
                 # If result has different structure, extract feedback fields
-    feedback = {
+                feedback = {
                     "score": result.get("score", 75),
                     "word_count": word_count,
                     "strengths": result.get("strengths", ["AI analysis completed"]),
