@@ -998,19 +998,22 @@ async def find_resources(course_id: str, topic: str):
 
 async def generate_suggestions(course_id: str, topic: str):
     """Generate continue learning suggestions"""
-    prompt = f"Suggest 5 related topics after learning {topic}. Format as JSON: [{{'topic': 'string', 'description': 'string'}}]"
-            data = await call_gemini_with_retry(prompt, service="article")
-    text = data["candidates"][0]["content"]["parts"][0]["text"]
-    
-    json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL) or re.search(r'\[.*\]', text, re.DOTALL)
-    suggestions_data = json.loads(json_match.group(1) if json_match.lastindex else json_match.group(0))
-    
-    suggestions = [
-        {"course_id": course_id, "suggestion_topic": s["topic"], "suggestion_description": s["description"], "relevance_score": 5 - i}
-        for i, s in enumerate(suggestions_data)
-    ]
-    
-    await insert_to_supabase("course_suggestions", suggestions)
+    try:
+        prompt = f"Suggest 5 related topics after learning {topic}. Format as JSON: [{{'topic': 'string', 'description': 'string'}}]"
+        data = await call_gemini_with_retry(prompt, service="article")
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+        
+        json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL) or re.search(r'\[.*\]', text, re.DOTALL)
+        suggestions_data = json.loads(json_match.group(1) if json_match.lastindex else json_match.group(0))
+        
+        suggestions = [
+            {"course_id": course_id, "suggestion_topic": s["topic"], "suggestion_description": s["description"], "relevance_score": 5 - i}
+            for i, s in enumerate(suggestions_data)
+        ]
+        
+        await insert_to_supabase("course_suggestions", suggestions)
+    except Exception as e:
+        logger.warning(f"Suggestions generation failed, skipping: {e}")
 
 # Utility functions
 async def insert_to_supabase(table: str, data: list):
