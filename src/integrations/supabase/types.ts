@@ -149,6 +149,45 @@ export type Database = {
           },
         ]
       }
+      chapter_completion: {
+        Row: {
+          id: string
+          user_id: string
+          course_id: string
+          chapter_id: string
+          completed_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          course_id: string
+          chapter_id: string
+          completed_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          course_id?: string
+          chapter_id?: string
+          completed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chapter_completion_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chapter_completion_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_chapters: {
         Row: {
           content: string

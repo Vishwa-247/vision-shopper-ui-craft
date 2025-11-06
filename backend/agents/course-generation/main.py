@@ -44,54 +44,110 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# API Keys from environment - Support multiple Gemini keys for load balancing
+# ============================================
+# API Keys - Dedicated pools per service type
+# ============================================
+
+# Chapter Generation (10 keys - 1 per chapter for parallel generation)
+CHAPTER_KEYS = [os.getenv(f"GEMINI_CHAPTER_KEY_{i}") for i in range(1, 11)]
+CHAPTER_KEYS = [k for k in CHAPTER_KEYS if k]
+
+# Quiz Generation (1 key dedicated)
+QUIZ_KEYS = [os.getenv("GEMINI_QUIZ_KEY")]
+QUIZ_KEYS = [k for k in QUIZ_KEYS if k]
+
+# Flashcard Generation (1 key dedicated)
+FLASHCARD_KEYS = [os.getenv("GEMINI_FLASHCARD_KEY")]
+FLASHCARD_KEYS = [k for k in FLASHCARD_KEYS if k]
+
+# Word Game Generation (1 key dedicated)
+GAME_KEYS = [os.getenv("GEMINI_GAME_KEY")]
+GAME_KEYS = [k for k in GAME_KEYS if k]
+
+# Article Generation (1 key dedicated)
+ARTICLE_KEYS = [os.getenv("GEMINI_ARTICLE_KEY")]
+ARTICLE_KEYS = [k for k in ARTICLE_KEYS if k]
+
+# Groq API Keys for Audio Script Generation (3 keys - faster than Gemini)
+GROQ_KEYS = [os.getenv(f"GROQ_API_KEY_{i}") for i in range(1, 4)]
+GROQ_KEYS = [k for k in GROQ_KEYS if k]
+
+# Fallback to old keys if new ones not configured
 GEMINI_API_KEYS = [
     os.getenv("GEMINI_API_KEY_1") or os.getenv("GEMINI_API_KEY"),
     os.getenv("GEMINI_API_KEY_2"),
     os.getenv("GEMINI_API_KEY_3"),
 ]
-# Remove None values
 GEMINI_API_KEYS = [k for k in GEMINI_API_KEYS if k]
-if not GEMINI_API_KEYS:
-    GEMINI_API_KEYS = [os.getenv("GEMINI_API_KEY")] if os.getenv("GEMINI_API_KEY") else []
 
-# Round-robin API key queue
-api_key_queue = deque(GEMINI_API_KEYS) if GEMINI_API_KEYS else deque()
+# Use fallback if no dedicated keys
+if not CHAPTER_KEYS:
+    CHAPTER_KEYS = GEMINI_API_KEYS
+if not QUIZ_KEYS:
+    QUIZ_KEYS = GEMINI_API_KEYS
+if not FLASHCARD_KEYS:
+    FLASHCARD_KEYS = GEMINI_API_KEYS
+if not GAME_KEYS:
+    GAME_KEYS = GEMINI_API_KEYS
+if not ARTICLE_KEYS:
+    ARTICLE_KEYS = GEMINI_API_KEYS
 
-# Concurrency control - limit to 2 concurrent Gemini calls (reduced for reliability)
-GEMINI_SEMAPHORE = asyncio.Semaphore(2)
+# Create separate queues for each service type
+chapter_queue = deque(CHAPTER_KEYS) if CHAPTER_KEYS else deque()
+quiz_queue = deque(QUIZ_KEYS) if QUIZ_KEYS else deque()
+flashcard_queue = deque(FLASHCARD_KEYS) if FLASHCARD_KEYS else deque()
+game_queue = deque(GAME_KEYS) if GAME_KEYS else deque()
+article_queue = deque(ARTICLE_KEYS) if ARTICLE_KEYS else deque()
+groq_queue = deque(GROQ_KEYS) if GROQ_KEYS else deque()
+
+def get_key_for_service(service: str) -> str:
+    """Get next API key for specific service using round-robin"""
+    queues = {
+        "chapter": chapter_queue,
+        "quiz": quiz_queue,
+        "flashcard": flashcard_queue,
+        "game": game_queue,
+        "article": article_queue,
+        "groq": groq_queue
+    }
+    queue = queues.get(service, chapter_queue)
+    if not queue:
+        raise Exception(f"No API keys configured for {service}")
+    key = queue[0]
+    queue.rotate(-1)  # Move to back of queue
+    return key
+
+# Concurrency control per service type
+CHAPTER_SEMAPHORE = asyncio.Semaphore(3)  # 3 concurrent chapter generations
+QUIZ_SEMAPHORE = asyncio.Semaphore(2)
+FLASHCARD_SEMAPHORE = asyncio.Semaphore(2)
+GAME_SEMAPHORE = asyncio.Semaphore(1)
+ARTICLE_SEMAPHORE = asyncio.Semaphore(1)
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 BRAVE_API_KEY = os.getenv("BRAVE_SEARCH_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-def get_next_api_key() -> str:
-    """Round-robin API key selection"""
-    if not api_key_queue:
-        raise Exception("No Gemini API keys configured")
-    key = api_key_queue[0]
-    api_key_queue.rotate(-1)  # Move to back of queue
-    return key
-
-async def call_gemini_with_retry(prompt: str, max_retries: int = 5) -> dict:
-    """Call Gemini with retry, key rotation, rate limiting, and concurrency control"""
-    async with GEMINI_SEMAPHORE:  # Limit concurrent calls
+async def call_gemini_with_retry(prompt: str, service: str = "chapter", max_retries: int = 5) -> dict:
+    """Call Gemini with retry and service-specific rate limiting"""
+    # Select semaphore based on service
+    semaphores = {
+        "chapter": CHAPTER_SEMAPHORE,
+        "quiz": QUIZ_SEMAPHORE,
+        "flashcard": FLASHCARD_SEMAPHORE,
+        "game": GAME_SEMAPHORE,
+        "article": ARTICLE_SEMAPHORE
+    }
+    semaphore = semaphores.get(service, CHAPTER_SEMAPHORE)
+    
+    async with semaphore:  # Limit concurrent calls per service
         for attempt in range(max_retries):
             try:
-                # Always add delay BEFORE every request to avoid rate limits
-                await asyncio.sleep(0.5)  # 500ms delay between requests
+                # Progressive delay based on attempt
+                await asyncio.sleep(0.3 * (attempt + 1))
                 
-                api_key = get_next_api_key()
-                key_id = GEMINI_API_KEYS.index(api_key) + 1 if api_key in GEMINI_API_KEYS else "?"
-                
-                # Additional delay for retries with exponential backoff
-                if attempt > 0:
-                    wait_time = 2 ** attempt  # Exponential backoff: 2s, 4s, 8s, 16s
-                    logger.warning(f"⏳ Rate limited, retrying in {wait_time}s (attempt {attempt+1}/{max_retries}) with key {key_id}...")
-                    await asyncio.sleep(wait_time)
-                
-                logger.debug(f"🔑 Using API key {key_id} (attempt {attempt+1}/{max_retries})")
+                api_key = get_key_for_service(service)
                 
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.post(
@@ -104,29 +160,69 @@ async def call_gemini_with_retry(prompt: str, max_retries: int = 5) -> dict:
                     )
                     
                     if response.status_code == 429:
-                        # Rate limited - try next key or retry
                         if attempt < max_retries - 1:
-                            logger.warning(f"⚠️ 429 rate limit hit, will retry with next key...")
+                            wait = 2 ** attempt
+                            logger.warning(f"⏳ [{service}] Rate limited, retrying in {wait}s...")
+                            await asyncio.sleep(wait)
                             continue
-                        raise HTTPException(status_code=429, detail="Gemini API rate limit exceeded after all retries")
+                        raise HTTPException(status_code=429, detail=f"Gemini API rate limit exceeded for {service}")
                     
                     response.raise_for_status()
-                    logger.debug(f"✅ Successfully called Gemini API (key {key_id})")
+                    logger.info(f"✅ [{service}] API call successful")
                     return response.json()
                     
             except httpx.HTTPStatusError as e:
                 if e.response.status_code == 429 and attempt < max_retries - 1:
-                    logger.warning(f"⚠️ HTTP 429 error, retrying... (attempt {attempt+1}/{max_retries})")
+                    logger.warning(f"⚠️ [{service}] HTTP 429 error, retrying... (attempt {attempt+1}/{max_retries})")
                     continue
-                logger.error(f"💥 HTTP Error {e.response.status_code}: {e.response.text[:200]}")
+                logger.error(f"💥 [{service}] HTTP Error {e.response.status_code}: {e.response.text[:200]}")
                 raise
             except Exception as e:
-                logger.error(f"💥 Error on attempt {attempt+1}/{max_retries}: {e}")
                 if attempt < max_retries - 1:
+                    logger.warning(f"⚠️ [{service}] Attempt {attempt+1} failed, retrying...")
                     continue
+                logger.error(f"💥 [{service}] Failed after {max_retries} attempts: {e}")
                 raise
     
-    raise Exception("Max retries exceeded for Gemini API")
+    raise Exception(f"Max retries exceeded for {service}")
+
+async def call_groq_with_retry(prompt: str, max_retries: int = 3) -> dict:
+    """Call Groq API with retry (faster than Gemini for text generation)"""
+    for attempt in range(max_retries):
+        try:
+            await asyncio.sleep(0.5 * (attempt + 1))
+            api_key = get_key_for_service("groq")
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "llama-3.3-70b-versatile",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.7
+                    }
+                )
+                
+                if response.status_code == 429 and attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)
+                    logger.warning(f"⏳ [groq] Rate limited, retrying in {2 ** attempt}s...")
+                    continue
+                
+                response.raise_for_status()
+                logger.info(f"✅ [groq] API call successful")
+                return response.json()
+                
+        except Exception as e:
+            if attempt == max_retries - 1:
+                logger.error(f"💥 [groq] Failed after {max_retries} attempts: {e}")
+                raise
+            logger.warning(f"⚠️ [groq] Attempt {attempt+1} failed, retrying...")
+    
+    raise Exception("Groq API max retries exceeded")
 
 # Models
 class CourseGenerationRequest(BaseModel):
@@ -140,6 +236,12 @@ async def health_check():
         "service": "course-generation",
         "has_gemini": len(GEMINI_API_KEYS) > 0,
         "gemini_key_count": len(GEMINI_API_KEYS),
+        "chapter_keys": len(CHAPTER_KEYS),
+        "quiz_keys": len(QUIZ_KEYS),
+        "flashcard_keys": len(FLASHCARD_KEYS),
+        "game_keys": len(GAME_KEYS),
+        "article_keys": len(ARTICLE_KEYS),
+        "groq_keys": len(GROQ_KEYS),
         "has_elevenlabs": bool(ELEVENLABS_API_KEY),
         "has_brave": bool(BRAVE_API_KEY)
     }
@@ -527,7 +629,7 @@ Return JSON:
 
 Generate at least 5 chapters, up to 7 if the topic is complex. Return ONLY valid JSON."""
     
-    data = await call_gemini_with_retry(prompt)
+    data = await call_gemini_with_retry(prompt, service="chapter")
     text = data["candidates"][0]["content"]["parts"][0]["text"]
     
     # Extract JSON
@@ -540,7 +642,7 @@ Generate at least 5 chapters, up to 7 if the topic is complex. Return ONLY valid
             logger.warning(f"Only {len(outline['chapters'])} chapters generated, requesting more...")
             # Retry with explicit requirement
             retry_prompt = f"""Create a course outline for: "{topic}" with EXACTLY 5-7 chapters. Return JSON: {{"chapters": [{{"title": "string", "level": "basic|intermediate|advanced|expert", "objectives": ["obj1"], "keyConcepts": ["concept1"], "estimatedMinutes": 15}}]}}"""
-            retry_data = await call_gemini_with_retry(retry_prompt)
+            retry_data = await call_gemini_with_retry(retry_prompt, service="chapter")
             retry_text = retry_data["candidates"][0]["content"]["parts"][0]["text"]
             retry_match = re.search(r'```json\n(.*?)\n```', retry_text, re.DOTALL) or re.search(r'\{.*\}', retry_text, re.DOTALL)
             if retry_match:
@@ -594,7 +696,7 @@ DO NOT:
 
 Return ONLY HTML, no markdown. Make it comprehensive and detailed."""
 
-        data = await call_gemini_with_retry(prompt)
+        data = await call_gemini_with_retry(prompt, service="chapter")
         content = data["candidates"][0]["content"]["parts"][0]["text"]
         
         # Clean any remaining markdown artifacts
@@ -637,7 +739,7 @@ Return ONLY HTML, no markdown. Make it comprehensive and detailed."""
 async def generate_flashcards(course_id: str, topic: str) -> list:
     """Generate flashcards"""
     prompt = f"Generate 10 flashcards for: {topic}. Format as JSON: [{{'question': 'string', 'answer': 'string'}}]"
-    data = await call_gemini_with_retry(prompt)
+    data = await call_gemini_with_retry(prompt, service="flashcard")
     text = data["candidates"][0]["content"]["parts"][0]["text"]
     
     json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL) or re.search(r'\[.*\]', text, re.DOTALL)
@@ -654,7 +756,7 @@ async def generate_flashcards(course_id: str, topic: str) -> list:
 async def generate_mcqs(course_id: str, topic: str) -> list:
     """Generate MCQs"""
     prompt = f"Generate 10 MCQs for: {topic}. Format as JSON: [{{'question': 'string', 'options': ['A', 'B', 'C', 'D'], 'correct': 'A', 'explanation': 'string'}}]"
-    data = await call_gemini_with_retry(prompt)
+    data = await call_gemini_with_retry(prompt, service="quiz")
     text = data["candidates"][0]["content"]["parts"][0]["text"]
     
     json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL) or re.search(r'\[.*\]', text, re.DOTALL)
@@ -684,20 +786,20 @@ Use ONLY HTML tags: <h2>, <p>, <strong>, <em>, <ul>, <li>, <code>, <table>
 No markdown syntax allowed.
 Include 2-3 code examples in <code> tags."""
     
-    deep_dive_data = await call_gemini_with_retry(deep_dive_prompt)
+    deep_dive_data = await call_gemini_with_retry(deep_dive_prompt, service="article")
     deep_dive = deep_dive_data["candidates"][0]["content"]["parts"][0]["text"].strip()
     # Clean markdown artifacts
     deep_dive = deep_dive.replace('```html', '').replace('```', '').replace('**', '').strip()
     
     # Key takeaways - HTML format
     takeaways_prompt = f"""Summarize key takeaways for: {topic} in 5-7 bullet points. Use HTML: <ul><li>Point 1</li><li>Point 2</li></ul>"""
-    takeaways_data = await call_gemini_with_retry(takeaways_prompt)
+    takeaways_data = await call_gemini_with_retry(takeaways_prompt, service="article")
     takeaways = takeaways_data["candidates"][0]["content"]["parts"][0]["text"].strip()
     takeaways = takeaways.replace('```html', '').replace('```', '').replace('**', '').strip()
     
     # FAQ
     faq_prompt = f"Generate 8-10 FAQ for: {topic}. Format as JSON: [{{'question': 'string', 'answer': 'string'}}]"
-    faq_data = await call_gemini_with_retry(faq_prompt)
+    faq_data = await call_gemini_with_retry(faq_prompt, service="article")
     faq_text = faq_data["candidates"][0]["content"]["parts"][0]["text"]
     
     json_match = re.search(r'```json\n(.*?)\n```', faq_text, re.DOTALL) or re.search(r'\[.*\]', faq_text, re.DOTALL)
@@ -716,7 +818,7 @@ async def generate_word_games(course_id: str, topic: str) -> list:
     """Generate word games - skip if table doesn't exist"""
     try:
         prompt = f"Generate 15 vocabulary words for: {topic}. Format as JSON: [{{'word': 'string', 'correct': 'string', 'incorrect': ['string', 'string', 'string']}}]"
-        data = await call_gemini_with_retry(prompt)
+        data = await call_gemini_with_retry(prompt, service="game")
         text = data["candidates"][0]["content"]["parts"][0]["text"]
         
         json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL) or re.search(r'\[.*\]', text, re.DOTALL)
@@ -734,18 +836,34 @@ async def generate_word_games(course_id: str, topic: str) -> list:
         return []  # Return empty list instead of failing
 
 async def generate_audio_scripts(topic: str, outline: dict) -> dict:
-    """Generate audio scripts"""
-    # Short script
-    short_prompt = f"Write 5-minute conversational podcast script introducing: {topic}. ~700 words. No speaker labels."
-    short_data = await call_gemini_with_retry(short_prompt)
-    short_script = short_data["candidates"][0]["content"]["parts"][0]["text"]
-    
-    # Long script
-    long_prompt = f"Write 20-minute educational lecture on: {topic}. ~3000 words. No speaker labels."
-    long_data = await call_gemini_with_retry(long_prompt)
-    long_script = long_data["candidates"][0]["content"]["parts"][0]["text"]
-    
-    return {"short": short_script, "long": long_script}
+    """Generate audio scripts using Groq (faster than Gemini)"""
+    try:
+        # Short script - use Groq if available, fallback to Gemini
+        short_prompt = f"Write 5-minute conversational podcast script introducing: {topic}. ~700 words. No speaker labels."
+        if GROQ_KEYS:
+            short_data = await call_groq_with_retry(short_prompt)
+            short_script = short_data["choices"][0]["message"]["content"]
+        else:
+            short_data = await call_gemini_with_retry(short_prompt, service="chapter")
+            short_script = short_data["candidates"][0]["content"]["parts"][0]["text"]
+        
+        # Long script
+        long_prompt = f"Write 20-minute educational lecture on: {topic}. ~3000 words. No speaker labels."
+        if GROQ_KEYS:
+            long_data = await call_groq_with_retry(long_prompt)
+            long_script = long_data["choices"][0]["message"]["content"]
+        else:
+            long_data = await call_gemini_with_retry(long_prompt, service="chapter")
+            long_script = long_data["candidates"][0]["content"]["parts"][0]["text"]
+        
+        return {"short": short_script, "long": long_script}
+    except Exception as e:
+        logger.warning(f"Audio script generation failed, using fallback: {e}")
+        # Fallback to simple scripts
+        return {
+            "short": f"Welcome to this podcast about {topic}. Today we'll explore the fundamentals and key concepts.",
+            "long": f"In this comprehensive lecture on {topic}, we'll cover everything from basics to advanced techniques."
+        }
 
 async def generate_tts(course_id: str, script: str, audio_type: str):
     """Generate TTS audio"""
@@ -881,7 +999,7 @@ async def find_resources(course_id: str, topic: str):
 async def generate_suggestions(course_id: str, topic: str):
     """Generate continue learning suggestions"""
     prompt = f"Suggest 5 related topics after learning {topic}. Format as JSON: [{{'topic': 'string', 'description': 'string'}}]"
-    data = await call_gemini_with_retry(prompt)
+            data = await call_gemini_with_retry(prompt, service="article")
     text = data["candidates"][0]["content"]["parts"][0]["text"]
     
     json_match = re.search(r'```json\n(.*?)\n```', text, re.DOTALL) or re.search(r'\[.*\]', text, re.DOTALL)
