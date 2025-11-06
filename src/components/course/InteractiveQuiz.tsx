@@ -99,9 +99,9 @@ export const InteractiveQuiz = ({ questions, onComplete }: InteractiveQuizProps)
             
             if (showResult) {
               if (isCorrectAnswer) {
-                variantClass = 'border-green-500 bg-green-50 dark:bg-green-950';
+                variantClass = 'border-green-500 bg-green-50 dark:bg-green-950 text-green-900 dark:text-green-100';
               } else if (isSelected && !isCorrect) {
-                variantClass = 'border-red-500 bg-red-50 dark:bg-red-950';
+                variantClass = 'border-red-500 bg-red-50 dark:bg-red-950 text-red-900 dark:text-red-100';
               }
             } else if (isSelected) {
               variantClass = 'border-primary bg-primary/5';

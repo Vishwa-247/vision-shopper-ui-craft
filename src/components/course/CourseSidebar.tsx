@@ -63,13 +63,13 @@ export const CourseSidebar = ({
           )}
           onClick={() => onChapterSelect(chapter.id)}
         >
-          <div className="flex items-center gap-2 flex-1">
+          <div className="flex items-start gap-2 flex-1 min-w-0">
             {isCompleted ? (
-              <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+              <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0 mt-1" />
             ) : (
-              <BookOpen className="h-4 w-4 flex-shrink-0" />
+              <BookOpen className="h-4 w-4 flex-shrink-0 mt-1" />
             )}
-            <span className="text-sm truncate">{chapter.title}</span>
+            <span className="text-sm leading-tight break-words flex-1">{chapter.title}</span>
           </div>
         </Button>
       );
@@ -98,7 +98,7 @@ export const CourseSidebar = ({
   };
 
   return (
-    <div className="w-64 border-r border-border bg-card h-full overflow-y-auto">
+    <div className="w-72 border-r border-border bg-card h-full overflow-y-auto">
       <div className="p-4 border-b border-border">
         <h3 className="font-semibold text-sm text-muted-foreground mb-2">Course Progress</h3>
         <Progress value={progress} className="h-2" />

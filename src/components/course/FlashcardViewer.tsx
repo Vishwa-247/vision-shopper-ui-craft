@@ -86,14 +86,16 @@ export const FlashcardViewer = ({ flashcards, onMarkLearned }: FlashcardViewerPr
       >
         <div
           className={cn(
-            'absolute inset-0 transition-transform duration-500 transform-style-3d',
-            isFlipped && 'rotate-y-180'
+            'absolute inset-0 transition-transform duration-500',
+            '[transform-style:preserve-3d]',
+            isFlipped && '[transform:rotateY(180deg)]'
           )}
         >
           {/* Front of card */}
           <Card
             className={cn(
-              'absolute inset-0 backface-hidden p-8 flex items-center justify-center text-center',
+              'absolute inset-0 p-8 flex items-center justify-center text-center',
+              '[backface-visibility:hidden]',
               'border-2',
               isLearned && 'border-green-500'
             )}
@@ -112,7 +114,9 @@ export const FlashcardViewer = ({ flashcards, onMarkLearned }: FlashcardViewerPr
           {/* Back of card */}
           <Card
             className={cn(
-              'absolute inset-0 backface-hidden rotate-y-180 p-8 flex items-center justify-center text-center',
+              'absolute inset-0 p-8 flex items-center justify-center text-center',
+              '[backface-visibility:hidden]',
+              '[transform:rotateY(180deg)]',
               'border-2',
               isLearned && 'border-green-500'
             )}

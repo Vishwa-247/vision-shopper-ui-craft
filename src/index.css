@@ -259,3 +259,46 @@ h5 {
 .prose em {
   @apply italic;
 }
+
+/* Flashcard 3D transforms */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+/* Code block syntax highlighting improvements */
+.prose pre {
+  @apply bg-gray-900 dark:bg-gray-800 rounded-xl p-6 overflow-x-auto my-6 shadow-lg;
+  background-color: #111827 !important;
+}
+
+.prose pre code {
+  @apply text-sm font-mono;
+  color: #e5e7eb !important;
+  background: transparent !important;
+}
+
+/* Syntax highlighting colors */
+.prose pre code .token.comment,
+.prose pre code .comment {
+  color: #6b7280;
+}
+
+.prose pre code .token.keyword,
+.prose pre code .keyword {
+  color: #c084fc;
+}
+
+.prose pre code .token.string,
+.prose pre code .string {
+  color: #34d399;
+}
+
+.prose pre code .token.function,
+.prose pre code .function {
+  color: #60a5fa;
+}
+
+.prose pre code .token.number,
+.prose pre code .number {
+  color: #fb923c;
+}

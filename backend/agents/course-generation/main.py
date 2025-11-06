@@ -507,33 +507,42 @@ async def generate_chapters(course_id: str, topic: str, outline: dict) -> list:
     for i, chapter in enumerate(outline["chapters"]):
         level = chapter.get('level', 'intermediate')
         
-        prompt = f"""Write a concise chapter for:
+        prompt = f"""Write comprehensive chapter content for: {chapter['title']}
 
 Topic: {topic}
-Chapter: {chapter['title']}
 Level: {level}
 
-REQUIREMENTS (400-600 words):
-1. Intro (1-2 paragraphs in <p> tags)
-2. Key concepts with 1-2 SHORT code examples in <code>code here</code>
-3. One comparison table using <table><tr><th>...</th></tr><tr><td>...</td></tr></table>
-4. Summary in <p> tags
+REQUIREMENTS (1500-2000 words minimum):
+1. Start with introduction (2-3 paragraphs in <p> tags, NO heading)
+2. 4-5 main sections with <h2>Subheading</h2> headings
+3. Each section: 300-400 words with detailed explanations
+4. Include 3-5 detailed code examples (10-20 lines each) in <pre><code>code blocks</code></pre>
+5. Add real-world examples and use cases
+6. Include best practices and common pitfalls
+7. One comparison table using <table><tr><th>Header</th></tr><tr><td>Data</td></tr></table> if applicable
+8. End with summary section (<h2>Summary</h2>) with key takeaways
 
 OUTPUT FORMAT: Pure HTML only. Use these tags:
-- <h2>Subheading</h2>
+- <h2>Subheading</h2> (for main sections)
+- <h3>Sub-subheading</h3> (for subsections if needed)
 - <p>Paragraph text</p>
 - <strong>Bold text</strong>
 - <em>Italic text</em>
 - <ul><li>List item</li></ul>
-- <code>code here</code>
+- <pre><code># Multi-line code blocks
+def example():
+    pass
+</code></pre>
+- <code>inline code</code> (for single words/phrases)
 - <table><tr><th>Header</th></tr><tr><td>Data</td></tr></table>
 
-DO NOT USE:
-- Markdown syntax (**text**, ##, ```, *)
-- Any text outside HTML tags
-- Speaker labels or meta-text
+DO NOT:
+- Repeat the chapter title as a heading (it's already shown)
+- Use markdown syntax (**text**, ##, ```, *)
+- Include any text outside HTML tags
+- Add speaker labels or meta-text
 
-Keep it brief and practical. Return ONLY HTML, no markdown."""
+Return ONLY HTML, no markdown. Make it comprehensive and detailed."""
 
         data = await call_gemini_with_retry(prompt)
         content = data["candidates"][0]["content"]["parts"][0]["text"]
@@ -542,6 +551,26 @@ Keep it brief and practical. Return ONLY HTML, no markdown."""
         content = content.replace('```html', '').replace('```', '').replace('**', '').strip()
         # Remove any markdown headers if present
         content = re.sub(r'^#+\s+', '', content, flags=re.MULTILINE)
+        
+        # Remove chapter title if it appears in content (repeated heading fix)
+        title_lower = chapter['title'].lower()
+        # Remove first <h1> or <h2> that matches chapter title exactly
+        content = re.sub(
+            rf'<h[12][^>]*>\s*{re.escape(chapter["title"])}\s*</h[12]>',
+            '',
+            content,
+            count=1,
+            flags=re.IGNORECASE
+        )
+        # Also remove if title appears as plain text at the start
+        if content.lower().startswith(title_lower):
+            content = re.sub(
+                rf'^{re.escape(chapter["title"])}\s*\n+',
+                '',
+                content,
+                count=1,
+                flags=re.IGNORECASE | re.MULTILINE
+            )
         
         chapters.append({
             "course_id": course_id,
