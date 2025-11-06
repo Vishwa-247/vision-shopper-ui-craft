@@ -49,7 +49,7 @@ MODEL_PATH_ENV = os.getenv("FER_MODEL_PATH")
 DEFAULT_MODEL_PATH = r"C:\\Users\\VISHWA TEJA THOUTI\\Downloads\\furniture-fusion-bazaar-main (2)\\furniture-fusion-bazaar-main\\backend\\agents\\emotion-detection\\models\\best_vit_fer2013_model.pt"
 MODEL_PATH = MODEL_PATH_ENV if MODEL_PATH_ENV else DEFAULT_MODEL_PATH
 MODEL_TYPE = os.getenv("FER_MODEL_TYPE", "auto").lower()  # auto|full|state_dict|script
-MODEL_ARCH = os.getenv("FER_MODEL_ARCH", "vit_small_patch16_224")  # timm name
+MODEL_ARCH = os.getenv("FER_MODEL_ARCH", "google/vit-base-patch16-224-in21k")  # transformers model name or timm name
 MODEL_NUM_CLASSES = int(os.getenv("FER_NUM_CLASSES", "7"))
 
 model = None
@@ -57,30 +57,46 @@ model = None
 
 def _build_model_for_state_dict() -> nn.Module:
     """Create a model backbone compatible with the provided state_dict.
-    Attempts to use timm if available; falls back to a minimal ViT-like head.
+    Uses transformers ViT model (same as training) if available, falls back to timm.
     """
+    # Try to use transformers first (since that's what was used for training)
     try:
-        import timm  # type: ignore
-        backbone = timm.create_model(MODEL_ARCH, pretrained=False, num_classes=MODEL_NUM_CLASSES, in_chans=3)
-        logger.info(f"✅ Created timm model '{MODEL_ARCH}' with num_classes={MODEL_NUM_CLASSES}")
-        return backbone
+        from transformers import ViTForImageClassification
+        model_name = os.getenv("FER_TRANSFORMERS_MODEL", "google/vit-base-patch16-224-in21k")
+        model = ViTForImageClassification.from_pretrained(model_name, num_labels=MODEL_NUM_CLASSES)
+        logger.info(f"✅ Created transformers ViT model '{model_name}' with num_classes={MODEL_NUM_CLASSES}")
+        return model
     except Exception as e:
-        logger.warning(f"timm unavailable or failed to create '{MODEL_ARCH}': {e}. Falling back to simple head.")
-        # Fallback simple classifier over flattened features (very naive)
-        class SimpleCNN(nn.Module):
-            def __init__(self, num_classes: int):
-                super().__init__()
-                self.features = nn.Sequential(
-                    nn.Conv2d(3, 32, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
-                    nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
-                    nn.Conv2d(64, 128, 3, padding=1), nn.ReLU(), nn.AdaptiveAvgPool2d((1, 1)),
-                )
-                self.classifier = nn.Linear(128, num_classes)
-            def forward(self, x):
-                x = self.features(x)
-                x = x.view(x.size(0), -1)
-                return self.classifier(x)
-        return SimpleCNN(MODEL_NUM_CLASSES)
+        logger.warning(f"transformers ViT unavailable: {e}. Trying timm...")
+        try:
+            import timm  # type: ignore
+            # Map to timm architecture name
+            arch_map = {
+                "google/vit-base-patch16-224-in21k": "vit_base_patch16_224",
+                "vit_base_patch16_224": "vit_base_patch16_224",
+                "vit_small_patch16_224": "vit_small_patch16_224",
+            }
+            timm_arch = arch_map.get(MODEL_ARCH, MODEL_ARCH)
+            backbone = timm.create_model(timm_arch, pretrained=False, num_classes=MODEL_NUM_CLASSES, in_chans=3)
+            logger.info(f"✅ Created timm model '{timm_arch}' with num_classes={MODEL_NUM_CLASSES}")
+            return backbone
+        except Exception as e2:
+            logger.warning(f"timm unavailable or failed: {e2}. Falling back to simple head.")
+            # Fallback simple classifier over flattened features (very naive)
+            class SimpleCNN(nn.Module):
+                def __init__(self, num_classes: int):
+                    super().__init__()
+                    self.features = nn.Sequential(
+                        nn.Conv2d(3, 32, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
+                        nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
+                        nn.Conv2d(64, 128, 3, padding=1), nn.ReLU(), nn.AdaptiveAvgPool2d((1, 1)),
+                    )
+                    self.classifier = nn.Linear(128, num_classes)
+                def forward(self, x):
+                    x = self.features(x)
+                    x = x.view(x.size(0), -1)
+                    return self.classifier(x)
+            return SimpleCNN(MODEL_NUM_CLASSES)
 
 
 def _try_load_model(path: str) -> bool:
@@ -108,7 +124,7 @@ def _try_load_model(path: str) -> bool:
                 pass
             # Try full pickled nn.Module next
             try:
-                full_obj = torch.load(str(p), map_location=torch.device('cpu'))
+                full_obj = torch.load(str(p), map_location=torch.device('cpu'), weights_only=False)
                 if isinstance(full_obj, nn.Module):
                     full_obj.eval()
                     model = full_obj
@@ -129,10 +145,92 @@ def _try_load_model(path: str) -> bool:
                     MODEL_LOADED = True
                     logger.info(f"✅ State dict loaded into backbone: {p}")
                     return True
-            except Exception as e:
-                logger.error(f"Auto load failed: {e}")
-                MODEL_LOADED = False
-                return False
+            except (AttributeError, RuntimeError, ImportError) as e:
+                error_msg = str(e)
+                if "Can't get attribute" in error_msg or "ViTSdpaAttention" in error_msg:
+                    logger.warning(f"Model has missing class attributes (likely transformers version mismatch). Extracting state_dict...")
+                    # Try to extract state_dict from the pickled file
+                    try:
+                        import pickle
+                        import sys
+                        
+                        # Create a dummy module for missing classes
+                        class DummyModule:
+                            def __init__(self, *args, **kwargs):
+                                pass
+                        
+                        # Patch sys.modules to handle missing classes
+                        original_import = __import__
+                        def patched_import(name, *args, **kwargs):
+                            if 'ViTSdpaAttention' in name or 'transformers.models.vit.modeling_vit' in name:
+                                return DummyModule()
+                            return original_import(name, *args, **kwargs)
+                        
+                        # Try loading with error handling
+                        try:
+                            with open(str(p), 'rb') as f:
+                                # Load the pickled object
+                                obj = pickle.load(f)
+                            
+                            # Extract state_dict
+                            if hasattr(obj, 'state_dict'):
+                                state_dict = obj.state_dict()
+                                logger.info("✅ Extracted state_dict from model object")
+                            elif isinstance(obj, dict):
+                                if 'state_dict' in obj:
+                                    state_dict = obj['state_dict']
+                                elif any(key.startswith(('vit.', 'model.', 'encoder.', 'classifier.', 'head.')) for key in obj.keys()):
+                                    state_dict = obj
+                                else:
+                                    raise ValueError("Could not identify state_dict in loaded object")
+                            else:
+                                raise ValueError("Loaded object is neither a model nor a state_dict")
+                            
+                            # Load into compatible model
+                            backbone = _build_model_for_state_dict()
+                            
+                            # Handle transformers model structure (may have 'vit.' prefix or be nested)
+                            if hasattr(backbone, 'vit') and any(not k.startswith('vit.') for k in state_dict.keys()):
+                                # Need to add 'vit.' prefix
+                                new_state_dict = {}
+                                for k, v in state_dict.items():
+                                    if k.startswith('classifier.'):
+                                        new_state_dict[k] = v
+                                    else:
+                                        new_state_dict[f'vit.{k}'] = v
+                                state_dict = new_state_dict
+                            elif not hasattr(backbone, 'vit') and any(k.startswith('vit.') for k in state_dict.keys()):
+                                # Need to remove 'vit.' prefix
+                                new_state_dict = {}
+                                for k, v in state_dict.items():
+                                    if k.startswith('vit.'):
+                                        new_state_dict[k[4:]] = v
+                                    else:
+                                        new_state_dict[k] = v
+                                state_dict = new_state_dict
+                            
+                            missing, unexpected = backbone.load_state_dict(state_dict, strict=False)
+                            if missing:
+                                logger.warning(f"State dict missing keys: {list(missing)[:8]} ...")
+                            if unexpected:
+                                logger.warning(f"Unexpected keys in state dict: {list(unexpected)[:8]} ...")
+                            backbone.eval()
+                            model = backbone
+                            MODEL_LOADED = True
+                            logger.info(f"✅ State dict extracted and loaded into compatible model: {p}")
+                            return True
+                        except Exception as e2:
+                            logger.error(f"Failed to extract state_dict: {e2}")
+                            MODEL_LOADED = False
+                            return False
+                    except Exception as e3:
+                        logger.error(f"Failed to extract state_dict with pickle: {e3}")
+                        MODEL_LOADED = False
+                        return False
+                else:
+                    logger.error(f"Auto load failed: {e}")
+                    MODEL_LOADED = False
+                    return False
         else:
             if mtype == "script":
                 scripted = torch.jit.load(str(p), map_location=torch.device('cpu'))
@@ -141,14 +239,55 @@ def _try_load_model(path: str) -> bool:
                 logger.info(f"✅ TorchScript model loaded: {p}")
                 return True
             if mtype == "full":
-                full_obj = torch.load(str(p), map_location=torch.device('cpu'))
-                if not isinstance(full_obj, nn.Module):
-                    raise RuntimeError("Provided model is not an nn.Module; set FER_MODEL_TYPE=state_dict if it's a state dict.")
-                full_obj.eval()
-                model = full_obj
-                MODEL_LOADED = True
-                logger.info(f"✅ Pickled nn.Module loaded: {p}")
-                return True
+                try:
+                    full_obj = torch.load(str(p), map_location=torch.device('cpu'), weights_only=False)
+                    if not isinstance(full_obj, nn.Module):
+                        raise RuntimeError("Provided model is not an nn.Module; set FER_MODEL_TYPE=state_dict if it's a state dict.")
+                    full_obj.eval()
+                    model = full_obj
+                    MODEL_LOADED = True
+                    logger.info(f"✅ Pickled nn.Module loaded: {p}")
+                    return True
+                except (AttributeError, RuntimeError) as e:
+                    if "Can't get attribute" in str(e) or "ViTSdpaAttention" in str(e):
+                        logger.warning(f"Model has missing class attributes. Switching to state_dict extraction...")
+                        # Extract and load as state_dict
+                        import pickle
+                        try:
+                            with open(str(p), 'rb') as f:
+                                obj = pickle.load(f)
+                            if hasattr(obj, 'state_dict'):
+                                state_dict = obj.state_dict()
+                            elif isinstance(obj, dict):
+                                state_dict = obj.get('state_dict', obj)
+                            else:
+                                raise ValueError("Could not extract state_dict")
+                            
+                            backbone = _build_model_for_state_dict()
+                            # Handle transformers model structure
+                            if hasattr(backbone, 'vit') and any(not k.startswith('vit.') for k in state_dict.keys()):
+                                new_state_dict = {}
+                                for k, v in state_dict.items():
+                                    if k.startswith('classifier.'):
+                                        new_state_dict[k] = v
+                                    else:
+                                        new_state_dict[f'vit.{k}'] = v
+                                state_dict = new_state_dict
+                            
+                            missing, unexpected = backbone.load_state_dict(state_dict, strict=False)
+                            if missing:
+                                logger.warning(f"State dict missing keys: {list(missing)[:8]} ...")
+                            if unexpected:
+                                logger.warning(f"Unexpected keys: {list(unexpected)[:8]} ...")
+                            backbone.eval()
+                            model = backbone
+                            MODEL_LOADED = True
+                            logger.info(f"✅ State dict extracted and loaded: {p}")
+                            return True
+                        except Exception as e2:
+                            logger.error(f"Failed to extract state_dict: {e2}")
+                            raise RuntimeError(f"Failed to load model: {e}. Try setting FER_MODEL_TYPE=state_dict in .env")
+                    raise
             if mtype == "state_dict":
                 state_dict = torch.load(str(p), map_location=torch.device('cpu'))
                 backbone = _build_model_for_state_dict()
@@ -301,9 +440,17 @@ def analyze_emotion():
         if MODEL_LOADED and model is not None:
             try:
                 with torch.no_grad():
-                    logits = model(face_tensor)
-                    if isinstance(logits, (list, tuple)):
-                        logits = logits[0]
+                    # Handle transformers model output (has .logits attribute)
+                    output = model(face_tensor)
+                    if hasattr(output, 'logits'):
+                        logits = output.logits
+                    elif hasattr(output, 'logit'):
+                        logits = output.logit
+                    elif isinstance(output, (list, tuple)):
+                        logits = output[0]
+                    else:
+                        logits = output
+                    
                     probs = torch.softmax(logits, dim=1).cpu().numpy()[0]
                     top_idx = int(np.argmax(probs))
                     # Safeguard index if label count mismatches
