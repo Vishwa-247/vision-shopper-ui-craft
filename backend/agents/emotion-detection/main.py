@@ -433,9 +433,12 @@ def analyze_emotion():
         face_img = img[y:y+h, x:x+w]
         face_resized = cv2.resize(face_img, (MODEL_INPUT_SIZE, MODEL_INPUT_SIZE))
         face_rgb = cv2.cvtColor(face_resized, cv2.COLOR_BGR2RGB)
+        # Normalize for ImageNet (standard for ViT models) - matches training preprocessing
         face_norm = face_rgb.astype(np.float32) / 255.0
-        # Simple normalization; adapt if your model expects mean/std normalization
-        face_tensor = torch.from_numpy(face_norm).permute(2, 0, 1).unsqueeze(0)
+        mean = np.array([0.485, 0.456, 0.406])
+        std = np.array([0.229, 0.224, 0.225])
+        face_norm = (face_norm - mean) / std
+        face_tensor = torch.from_numpy(face_norm).permute(2, 0, 1).unsqueeze(0).float()
         
         if MODEL_LOADED and model is not None:
             try:
