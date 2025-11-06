@@ -342,7 +342,7 @@ async def submit_answer(
         if "multipart/form-data" in content_type and audio is not None:
             # Transcribe audio
             try:
-                from .transcription import transcribe_audio
+                from transcription import transcribe_audio
                 audio_bytes = await audio.read()
                 audio_duration = len(audio_bytes) / 16000  # approximate duration
                 user_answer_text = await transcribe_audio(audio_bytes, audio.content_type)
@@ -370,7 +370,7 @@ async def submit_answer(
         current_question = questions[current_idx]
 
         # Analyze communication (speech pattern analysis)
-        from .speech_analyzer import SpeechAnalyzer
+        from speech_analyzer import SpeechAnalyzer
         analyzer = SpeechAnalyzer()
         communication_analysis = analyzer.analyze_communication(user_answer_text, audio_duration)
         
@@ -698,7 +698,7 @@ async def websocket_transcribe(websocket: WebSocket):
                 accumulated_audio += data_bytes
                 if len(accumulated_audio) > 48000:
                     try:
-                        from .transcription import transcribe_audio  # type: ignore
+                        from transcription import transcribe_audio  # type: ignore
                         transcript = await transcribe_audio(accumulated_audio)
                         if transcript:
                             await websocket.send_json({"transcript": transcript})
