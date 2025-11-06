@@ -6,7 +6,7 @@ from typing import Optional
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, Request
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -26,14 +26,7 @@ app = FastAPI(title="StudyMate API Gateway - Supabase Edition", version="2.0.0")
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173", 
-        "http://localhost:3000", 
-        "http://localhost:8080",  # Add support for Vite dev server on port 8080
-        "http://127.0.0.1:8080",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000"
-    ],
+    allow_origins=["*"],  # Dev: allow all origins (use specific origins for prod)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -294,6 +287,7 @@ async def generate_technical(interview_data: dict, user_id: str = Depends(verify
 @app.post("/interviews/{interview_id}/answer")
 async def submit_interview_answer(
     interview_id: str,
+    request: Request,
     audio: UploadFile | None = File(None),
     question_id: str | None = Form(None),
 ):
@@ -306,6 +300,14 @@ async def submit_interview_answer(
                 data = {}
                 if question_id is not None:
                     data["question_id"] = question_id
+                # Forward facial_data if provided in form
+                try:
+                    form_data = await request.form()
+                    facial_data_str = form_data.get("facial_data")
+                    if facial_data_str:
+                        data["facial_data"] = facial_data_str
+                except Exception:
+                    pass
                 resp = await client.post(target, files=files, data=data)
             else:
                 # JSON fallback
