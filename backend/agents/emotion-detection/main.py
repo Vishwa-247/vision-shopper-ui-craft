@@ -1,15 +1,16 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import cv2
-import numpy as np
 import base64
 import logging
 import os
 import sys
 from pathlib import Path
-from dotenv import load_dotenv
+
+import cv2
+import numpy as np
 import torch
 import torch.nn as nn
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 # Add utils to path
 sys.path.append(str(Path(__file__).parent))
@@ -72,6 +73,7 @@ def _build_model_for_state_dict() -> nn.Module:
         logger.warning(f"transformers ViT unavailable: {e}. Trying timm...")
         try:
             import timm  # type: ignore
+
             # Map to timm architecture name
             arch_map = {
                 "google/vit-base-patch16-224-in21k": "vit_base_patch16_224",
@@ -173,7 +175,7 @@ def _try_load_model(path: str) -> bool:
                     try:
                         import pickle
                         import sys
-                        
+
                         # Create a dummy module for missing classes
                         class DummyModule:
                             def __init__(self, *args, **kwargs):
@@ -511,11 +513,20 @@ def analyze_emotion():
                 'neutral': 0.7,
             }
         
+        # Sanitize tracking data for JSON safety (convert booleans/np types)
+        safe_tracking = None
+        if isinstance(tracking_data, dict):
+            safe_tracking = dict(tracking_data)
+            try:
+                safe_tracking['looking_at_camera'] = str(bool(tracking_data.get('looking_at_camera', False)))
+            except Exception:
+                safe_tracking['looking_at_camera'] = 'False'
+        
         return jsonify({
             'emotion': emotion,
             'confidence': confidence,
             'metrics': metrics,
-            'face_tracking': tracking_data,
+            'face_tracking': safe_tracking,
             'face_detected': True
         })
     except Exception as e:

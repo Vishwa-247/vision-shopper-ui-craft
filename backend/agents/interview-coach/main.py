@@ -390,6 +390,43 @@ async def submit_answer(
         except:
             pass
         
+        # DEMO: Short-circuit with dummy response for presentations
+        if os.getenv("DEMO_MODE", "false").lower() == "true":
+            # Build a demo analysis payload using available facial_data when present
+            demo_confident = (facial_data or {}).get("confident", 0.78)
+            demo_stressed = (facial_data or {}).get("stressed", 0.18)
+            demo_nervous = (facial_data or {}).get("nervous", 0.15)
+            demo_blinks = (facial_data or {}).get("blink_count", 12)
+            demo_looking = (facial_data or {}).get("looking_at_camera", False)
+            return {
+                "success": True,
+                "response_text": user_answer_text or "This is a sample answer about my experience with Python and JavaScript.",
+                "analysis": {
+                    "filler_word_count": 3,
+                    "words_per_minute": 145,
+                    "clarity_score": 88,
+                    "overall_score": 88,
+                    "strengths": [
+                        "Clear articulation and good pacing",
+                        "Demonstrated technical knowledge effectively",
+                        "Used specific examples to support points"
+                    ],
+                    "improvements": [
+                        "Reduce filler words",
+                        "Add quantifiable achievements",
+                        "Use clearer structure (STAR)"
+                    ],
+                    "overall_feedback": "Strong answer with good technical depth. Reduce filler words for even more professional delivery."
+                },
+                "facial_analysis": {
+                    "confidence_score": int(demo_confident * 100),
+                    "stress_level": int(demo_stressed * 100),
+                    "nervousness_level": int(demo_nervous * 100),
+                    "blink_count": demo_blinks,
+                    "gaze_status": "Focused" if (str(demo_looking).lower() in ["true", "1"]) else "Distracted"
+                }
+            }
+
         # Move to next question
         next_idx = current_idx + 1
         is_complete = next_idx >= len(questions)
