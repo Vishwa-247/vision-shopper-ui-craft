@@ -412,13 +412,39 @@ async def generate_in_parallel(course_id: str, topic: str, user_id: str):
         await update_progress(course_id, 60, "Creating audio...")
         
         # STEP 3: Generate TTS if key available
+        audio_success = False
         if ELEVENLABS_API_KEY and audio_scripts:
-            await asyncio.gather(
+            results = await asyncio.gather(
                 generate_tts(course_id, audio_scripts.get("short", ""), "short_podcast"),
                 generate_tts(course_id, audio_scripts.get("long", ""), "full_lecture"),
                 return_exceptions=True
             )
-            await update_course_field(course_id, {"audio_generated": True})
+            # Only set audio_generated if at least one TTS succeeded
+            audio_success = any(
+                result is True or (isinstance(result, Exception) and "generated" in str(result).lower())
+                for result in results
+            )
+            # Check if audio was actually created in database
+            try:
+                async with httpx.AsyncClient() as client:
+                    check_response = await client.get(
+                        f"{SUPABASE_URL}/rest/v1/course_audio?course_id=eq.{course_id}",
+                        headers={
+                            "apikey": SUPABASE_SERVICE_KEY,
+                            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                        }
+                    )
+                    if check_response.status_code == 200:
+                        audio_data = check_response.json()
+                        audio_success = len(audio_data) > 0
+            except:
+                pass  # If check fails, rely on results
+            
+            if audio_success:
+                await update_course_field(course_id, {"audio_generated": True})
+                logger.info("✅ Audio generation completed successfully")
+            else:
+                logger.warning("⚠️ Audio generation failed - course will work without audio")
         
         await update_progress(course_id, 80, "Finding resources...")
         
@@ -744,8 +770,11 @@ async def generate_tts(course_id: str, script: str, audio_type: str):
                 }])
                 
                 logger.info(f"✅ Generated {audio_type} audio")
+                return True  # Return True to indicate success
             else:
-                logger.warning(f"TTS generation failed with status {response.status_code}: {response.text[:200]}")
+                error_msg = response.text[:200] if hasattr(response, 'text') else str(response.status_code)
+                logger.warning(f"TTS generation failed with status {response.status_code}: {error_msg}")
+                return False  # Return False to indicate failure
     except Exception as e:
         logger.error(f"TTS error: {e}")
 
