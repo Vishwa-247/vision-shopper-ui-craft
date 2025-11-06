@@ -4,6 +4,8 @@ import { courseService } from "@/api/services/courseService";
 import { CourseType } from "@/types";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { gatewayAuthService } from "@/api/services/gatewayAuthService";
+import { supabase } from "@/integrations/supabase/client";
 import Container from "@/components/ui/Container";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -84,10 +86,20 @@ const Courses = () => {
     }
 
     try {
+      // Get user email for Gateway authentication
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) {
+        throw new Error('User not authenticated');
+      }
+
+      // Ensure we have a Gateway token (separate from Supabase token)
+      const gatewayToken = await gatewayAuthService.ensureGatewayAuth(user.email);
+
       const response = await fetch(`http://localhost:8000/courses/${courseId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${gatewayToken}`,
         },
       });
 
