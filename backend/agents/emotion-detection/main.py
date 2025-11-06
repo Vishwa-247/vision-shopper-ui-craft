@@ -29,7 +29,7 @@ app = Flask(__name__)
 # Enable CORS for all routes
 CORS(app, resources={
     r"/*": {
-        "origins": ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"],
+        "origins": "*",  # Dev: allow all origins for presentation/demo
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type"]
     }
