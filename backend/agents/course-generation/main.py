@@ -411,39 +411,64 @@ async def generate_in_parallel(course_id: str, topic: str, user_id: str):
         
         await update_progress(course_id, 60, "Creating audio...")
         
-        # STEP 3: Generate TTS if key available
+        # STEP 3: Store audio scripts in database (always, even if TTS fails)
         audio_success = False
-        if ELEVENLABS_API_KEY and audio_scripts:
-            results = await asyncio.gather(
-                generate_tts(course_id, audio_scripts.get("short", ""), "short_podcast"),
-                generate_tts(course_id, audio_scripts.get("long", ""), "full_lecture"),
-                return_exceptions=True
-            )
-            # Check if any TTS generation succeeded (returned True)
-            audio_success = any(result is True for result in results)
+        if audio_scripts:
+            # Always store scripts in database for browser TTS fallback
+            audio_records = []
+            if audio_scripts.get("short"):
+                audio_records.append({
+                    "course_id": course_id,
+                    "audio_type": "short_podcast",
+                    "script_text": audio_scripts.get("short", ""),
+                    "duration_seconds": 300,
+                })
+            if audio_scripts.get("long"):
+                audio_records.append({
+                    "course_id": course_id,
+                    "audio_type": "full_lecture",
+                    "script_text": audio_scripts.get("long", ""),
+                    "duration_seconds": 1200,
+                })
             
-            # Also verify by checking if audio was actually created in database
-            if not audio_success:
-                try:
-                    async with httpx.AsyncClient() as client:
-                        check_response = await client.get(
-                            f"{SUPABASE_URL}/rest/v1/course_audio?course_id=eq.{course_id}",
-                            headers={
-                                "apikey": SUPABASE_SERVICE_KEY,
-                                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                            }
-                        )
-                        if check_response.status_code == 200:
-                            audio_data = check_response.json()
-                            audio_success = len(audio_data) > 0
-                except Exception as e:
-                    logger.debug(f"Could not verify audio in database: {e}")
+            if audio_records:
+                await insert_to_supabase("course_audio", audio_records)
+                logger.info("✅ Audio scripts stored in database")
             
-            if audio_success:
-                await update_course_field(course_id, {"audio_generated": True})
-                logger.info("✅ Audio generation completed successfully")
+            # Try to generate TTS if API key available
+            if ELEVENLABS_API_KEY:
+                results = await asyncio.gather(
+                    generate_tts(course_id, audio_scripts.get("short", ""), "short_podcast"),
+                    generate_tts(course_id, audio_scripts.get("long", ""), "full_lecture"),
+                    return_exceptions=True
+                )
+                # Check if any TTS generation succeeded (returned True)
+                audio_success = any(result is True for result in results)
+                
+                # Also verify by checking if audio was actually created in database
+                if not audio_success:
+                    try:
+                        async with httpx.AsyncClient() as client:
+                            check_response = await client.get(
+                                f"{SUPABASE_URL}/rest/v1/course_audio?course_id=eq.{course_id}&audio_url=not.is.null",
+                                headers={
+                                    "apikey": SUPABASE_SERVICE_KEY,
+                                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                                }
+                            )
+                            if check_response.status_code == 200:
+                                audio_data = check_response.json()
+                                audio_success = len(audio_data) > 0
+                    except Exception as e:
+                        logger.debug(f"Could not verify audio in database: {e}")
+                
+                if audio_success:
+                    await update_course_field(course_id, {"audio_generated": True})
+                    logger.info("✅ Audio generation completed successfully")
+                else:
+                    logger.warning("⚠️ Audio generation failed - scripts stored for browser TTS fallback")
             else:
-                logger.warning("⚠️ Audio generation failed - course will work without audio")
+                logger.info("ℹ️ ElevenLabs API key not configured - scripts stored for browser TTS")
         
         await update_progress(course_id, 80, "Finding resources...")
         
