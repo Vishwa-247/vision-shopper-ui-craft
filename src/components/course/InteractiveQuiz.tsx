@@ -94,17 +94,18 @@ export const InteractiveQuiz = ({ questions, onComplete }: InteractiveQuizProps)
           {currentQuestion.options.map((option, index) => {
             const isSelected = selectedAnswer === option;
             const isCorrectAnswer = option === currentQuestion.correct_answer;
+            const isWrongAnswer = showResult && isSelected && !isCorrectAnswer;
             
-            let variantClass = 'border-border hover:border-primary';
+            let variantClass = 'border-2 border-border hover:bg-secondary/50';
             
             if (showResult) {
               if (isCorrectAnswer) {
-                variantClass = 'border-green-500 bg-green-50 dark:bg-green-950 text-green-900 dark:text-green-100';
-              } else if (isSelected && !isCorrect) {
-                variantClass = 'border-red-500 bg-red-50 dark:bg-red-950 text-red-900 dark:text-red-100';
+                variantClass = 'quiz-option-correct';
+              } else if (isWrongAnswer) {
+                variantClass = 'quiz-option-incorrect';
               }
             } else if (isSelected) {
-              variantClass = 'border-primary bg-primary/5';
+              variantClass = 'border-2 border-primary bg-primary/5';
             }
 
             return (
@@ -113,7 +114,7 @@ export const InteractiveQuiz = ({ questions, onComplete }: InteractiveQuizProps)
                 onClick={() => handleAnswerSelect(option)}
                 disabled={showResult}
                 className={cn(
-                  'w-full p-4 border-2 rounded-lg text-left transition-all',
+                  'w-full p-4 rounded-lg text-left transition-all',
                   variantClass,
                   !showResult && 'cursor-pointer'
                 )}

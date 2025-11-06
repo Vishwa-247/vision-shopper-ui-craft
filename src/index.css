@@ -302,3 +302,120 @@ h5 {
 .prose pre code .number {
   color: #fb923c;
 }
+
+/* ============================================
+   CODE BLOCK STYLING - Enhanced for Course Content
+   ============================================ */
+
+/* Code blocks with dark background */
+.prose pre {
+  @apply bg-gray-900 rounded-xl p-6 overflow-x-auto my-6 shadow-lg border border-gray-800;
+  background-color: #111827 !important;
+}
+
+.prose pre code {
+  @apply text-sm font-mono leading-relaxed;
+  color: #e5e7eb !important;
+  background: transparent !important;
+  text-shadow: none;
+}
+
+/* Inline code */
+.prose code:not(pre code) {
+  @apply bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm font-mono;
+  color: #c084fc;
+}
+
+/* Syntax highlighting colors for code */
+.prose pre code .token.comment,
+.prose pre code .comment {
+  color: #6b7280;
+}
+
+.prose pre code .token.keyword,
+.prose pre code .keyword {
+  color: #c084fc;
+  font-weight: 600;
+}
+
+.prose pre code .token.string,
+.prose pre code .string {
+  color: #34d399;
+}
+
+.prose pre code .token.function,
+.prose pre code .function {
+  color: #60a5fa;
+}
+
+.prose pre code .token.number,
+.prose pre code .number {
+  color: #fb923c;
+}
+
+.prose pre code .token.operator,
+.prose pre code .operator {
+  color: #f472b6;
+}
+
+/* Tables */
+.prose table {
+  @apply w-full border-collapse my-6 shadow-md rounded-lg overflow-hidden;
+}
+
+.prose th {
+  @apply border border-border bg-muted px-4 py-3 text-left font-semibold;
+}
+
+.prose td {
+  @apply border border-border px-4 py-3;
+}
+
+.prose tbody tr:hover {
+  @apply bg-muted/50 transition-colors;
+}
+
+/* ============================================
+   QUIZ STYLING - Correct/Wrong Colors
+   ============================================ */
+
+.quiz-option-correct {
+  @apply border-2 border-green-500 bg-green-50 text-green-900 font-medium;
+}
+
+.quiz-option-incorrect {
+  @apply border-2 border-red-500 bg-red-50 text-red-900;
+}
+
+@media (prefers-color-scheme: dark) {
+  .quiz-option-correct {
+    @apply bg-green-950 text-green-100 border-green-400;
+  }
+
+  .quiz-option-incorrect {
+    @apply bg-red-950 text-red-100 border-red-400;
+  }
+}
+
+/* ============================================
+   FLASHCARD 3D FLIP ANIMATION (Enhanced)
+   ============================================ */
+
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+  -webkit-transform: rotateY(180deg);
+}

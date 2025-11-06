@@ -64,10 +64,6 @@ export const ContentRenderer = ({ content }: ContentRendererProps) => {
       <div 
         className="prose prose-slate dark:prose-invert max-w-none"
         dangerouslySetInnerHTML={{ __html: content }}
-        style={{
-          // Ensure code blocks are styled
-          '--code-bg': 'rgb(17 24 39)',
-        }}
       />
     );
   }

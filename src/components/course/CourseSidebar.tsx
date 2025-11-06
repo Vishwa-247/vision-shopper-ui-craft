@@ -101,10 +101,11 @@ export const CourseSidebar = ({
     );
   };
 
-  // Collapsed state - show only toggle button
+  // Collapsed state - show chapter indicators
   if (isCollapsed) {
     return (
-      <div className="w-12 border-r border-border bg-card h-full flex flex-col items-center py-4">
+      <div className="w-16 border-r border-border bg-card h-full flex flex-col items-center py-4">
+        {/* Expand button */}
         <Button
           variant="ghost"
           size="icon"
@@ -114,7 +115,52 @@ export const CourseSidebar = ({
         >
           <ChevronRightIcon className="h-5 w-5" />
         </Button>
-        <div className="flex-1 flex items-center justify-center">
+        
+        {/* Chapter indicators */}
+        <div className="flex-1 flex flex-col gap-2 w-full px-2 overflow-y-auto">
+          {chapters.map((chapter, index) => {
+            const isActive = currentChapterId === chapter.id;
+            const isCompleted = completedChapters.includes(chapter.id);
+            const chapterNumber = chapter.order_number || index + 1;
+
+            return (
+              <button
+                key={chapter.id}
+                onClick={() => onChapterSelect(chapter.id)}
+                className={cn(
+                  'w-full h-12 relative flex items-center justify-center rounded-md transition-all',
+                  isActive && 'bg-primary/20 text-primary ring-2 ring-primary',
+                  !isActive && 'hover:bg-muted'
+                )}
+                title={chapter.title}
+              >
+                {/* Chapter number */}
+                <span className={cn(
+                  'text-sm font-semibold',
+                  isActive && 'text-primary',
+                  !isActive && 'text-muted-foreground'
+                )}>
+                  {chapterNumber}
+                </span>
+                
+                {/* Completion indicator */}
+                {isCompleted && (
+                  <div className="absolute -top-1 -right-1">
+                    <CheckCircle2 className="h-3 w-3 text-green-600" />
+                  </div>
+                )}
+                
+                {/* Active indicator */}
+                {isActive && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+        
+        {/* Vertical "Chapters" text at bottom */}
+        <div className="mt-4">
           <div className="writing-vertical-rl transform rotate-180 text-xs text-muted-foreground font-semibold">
             Chapters
           </div>
