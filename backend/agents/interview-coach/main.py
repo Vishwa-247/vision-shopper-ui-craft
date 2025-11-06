@@ -268,17 +268,35 @@ async def get_interviews(user_id: str):
 
 @app.get("/interviews/{interview_id}")
 async def get_interview(interview_id: str):
-    """Get specific interview session."""
+    """Get interview from DATABASE, not memory."""
     try:
-        if interview_id not in interview_sessions:
-            raise HTTPException(status_code=404, detail="Interview not found")
-        
-        session = interview_sessions[interview_id]
-        
-        return {
-            "success": True,
-            "interview": session
-        }
+        if supabase:
+            # Get from Supabase
+            result = supabase.table("interview_sessions").select("*").eq("id", interview_id).execute()
+            if not result.data:
+                raise HTTPException(status_code=404, detail="Interview not found")
+            
+            session = result.data[0]
+            
+            # Get responses
+            responses = supabase.table("interview_responses")\
+                .select("*")\
+                .eq("session_id", interview_id)\
+                .order("question_index")\
+                .execute()
+            
+            return {
+                "success": True,
+                "interview": {
+                    **session,
+                    "responses": responses.data if responses.data else []
+                }
+            }
+        else:
+            # Fallback to memory
+            if interview_id not in interview_sessions:
+                raise HTTPException(status_code=404, detail="Interview not found")
+            return {"success": True, "interview": interview_sessions[interview_id]}
         
     except HTTPException:
         raise
@@ -296,21 +314,37 @@ async def submit_answer(
     # json fallback
     response: Optional[QuestionResponse] = None,
 ):
-    """Submit an answer to the current question."""
+    """Submit an answer with FULL database persistence."""
     try:
-        if interview_id not in interview_sessions:
-            raise HTTPException(status_code=404, detail="Interview not found")
+        # Get session from SUPABASE first (not memory)
+        session = None
+        if supabase:
+            session_data = supabase.table("interview_sessions").select("*").eq("id", interview_id).execute()
+            if not session_data.data:
+                raise HTTPException(status_code=404, detail="Interview not found")
+            session = session_data.data[0]
+        else:
+            # Fallback to memory
+            if interview_id not in interview_sessions:
+                raise HTTPException(status_code=404, detail="Interview not found")
+            session = interview_sessions[interview_id]
         
-        session = interview_sessions[interview_id]
+        # Get questions from session
+        questions = session.get("questions_data", {}).get("questions", [])
+        if not questions:
+            # Fallback to memory format
+            questions = session.get("questions", [])
+        
         user_answer_text = None
+        audio_duration = 0
 
         content_type = request.headers.get("content-type", "")
         if "multipart/form-data" in content_type and audio is not None:
             # Transcribe audio
             try:
-                from .transcription import \
-                    transcribe_audio  # lazy import within service
+                from .transcription import transcribe_audio
                 audio_bytes = await audio.read()
+                audio_duration = len(audio_bytes) / 16000  # approximate duration
                 user_answer_text = await transcribe_audio(audio_bytes, audio.content_type)
             except Exception as e:
                 logger.warning(f"Transcription failed: {e}")
@@ -328,86 +362,95 @@ async def submit_answer(
         if user_answer_text is None:
             user_answer_text = ""
 
-        current_idx = session.get("current_question", 0) if question_id is None else int(question_id)
+        current_idx = session.get("current_question_index", 0) if question_id is None else int(question_id)
+        
+        if current_idx >= len(questions):
+            raise HTTPException(status_code=400, detail="No more questions")
+        
+        current_question = questions[current_idx]
 
+        # Analyze communication (speech pattern analysis)
+        from .speech_analyzer import SpeechAnalyzer
+        analyzer = SpeechAnalyzer()
+        communication_analysis = analyzer.analyze_communication(user_answer_text, audio_duration)
+        
         # Analyze the answer using AI
-        feedback = await analyze_answer(
-            session["questions"][current_idx],
-            user_answer_text
-        )
+        feedback = await analyze_answer(current_question, user_answer_text)
         
-        # Update session with answer and feedback
-        session["questions"][current_idx]["answer"] = user_answer_text
-        if response is not None and response.thinking_time is not None:
-            session["questions"][current_idx]["thinking_time"] = response.thinking_time
-        session["questions"][current_idx]["feedback"] = feedback
-        
-        # Move to next question
-        session["current_question"] = current_idx + 1
-        
-        # Check if interview is complete
-        is_complete = session["current_question"] >= len(session["questions"])
-        if is_complete:
-            session["status"] = "completed"
-            session["end_time"] = datetime.utcnow().isoformat()
-        
-        interview_sessions[interview_id] = session
-
-        # Update Supabase with progress
-        if supabase:
-            try:
-                # Update session progress
-                update_data = {
-                    "current_question_index": session["current_question"],
-                    "questions_data": {"questions": session["questions"]},
-                    "status": "completed" if is_complete else "active"
-                }
-                if is_complete:
-                    update_data["completed_at"] = session["end_time"]
-                
-                supabase.table("interview_sessions").update(update_data).eq("id", interview_id).execute()
-                
-                # Get facial data from request if available
-                facial_data = None
+        # Get facial data from request if available
+        facial_data = None
+        try:
+            form_data = await request.form()
+            facial_data_str = form_data.get('facial_data')
+            if facial_data_str:
                 try:
-                    form_data = await request.form()
-                    facial_data_str = form_data.get('facial_data')
-                    if facial_data_str:
-                        try:
-                            facial_data = json.loads(facial_data_str)
-                        except:
-                            pass
+                    facial_data = json.loads(facial_data_str)
                 except:
                     pass
-                
-                # Persist response with facial data
-                insert_data = {
+        except:
+            pass
+        
+        # Move to next question
+        next_idx = current_idx + 1
+        is_complete = next_idx >= len(questions)
+        
+        # **CRITICAL: Store response in database IMMEDIATELY**
+        if supabase:
+            try:
+                response_data = {
                     "session_id": interview_id,
                     "user_id": session.get("user_id"),
                     "question_index": current_idx,
-                    "question_text": session["questions"][current_idx].get("question") or session["questions"][current_idx].get("text"),
+                    "question_text": current_question.get("text") or current_question.get("question"),
                     "response_text": user_answer_text,
-                    "ai_analysis": feedback,
+                    "response_time_seconds": int(audio_duration),
+                    "ai_analysis": {
+                        "score": feedback.get("score", 0),
+                        "word_count": feedback.get("word_count", 0),
+                        "strengths": feedback.get("strengths", []),
+                        "improvements": feedback.get("improvements", []),
+                        "overall_feedback": feedback.get("overall_feedback", ""),
+                        "communication": communication_analysis
+                    },
+                    "facial_analysis": facial_data,
+                    "confidence_score": feedback.get("score", 0) / 100.0
                 }
-                if facial_data:
-                    insert_data["facial_analysis"] = facial_data
                 
-                supabase.table("interview_responses").insert(insert_data).execute()
+                supabase.table("interview_responses").insert(response_data).execute()
+                logger.info(f"✅ Response stored in database: Q{current_idx}")
+                
+                # Update session progress in database
+                update_data = {
+                    "current_question_index": next_idx,
+                    "status": "completed" if is_complete else "active"
+                }
+                if is_complete:
+                    update_data["completed_at"] = datetime.utcnow().isoformat()
+                
+                supabase.table("interview_sessions").update(update_data).eq("id", interview_id).execute()
+                logger.info(f"✅ Progress updated: {next_idx}/{len(questions)}")
+                
             except Exception as e:
-                logger.warning(f"Supabase update failed: {e}")
+                logger.error(f"Failed to store response: {e}")
+        
+        # Update in-memory session for backward compatibility
+        if interview_id in interview_sessions:
+            interview_sessions[interview_id]["current_question"] = next_idx
+            interview_sessions[interview_id]["status"] = "completed" if is_complete else "active"
         
         next_question = None
-        if session["current_question"] < len(session["questions"]):
-            next_question = session["questions"][session["current_question"]]
+        if next_idx < len(questions):
+            next_question = questions[next_idx]
         
         return {
             "success": True,
+            "analysis": communication_analysis,
             "feedback": feedback,
             "next_question": next_question,
             "progress": {
-                "current": session["current_question"],
-                "total": len(session["questions"]),
-                "completed": session["status"] == "completed"
+                "current": next_idx,
+                "total": len(questions),
+                "completed": is_complete
             }
         }
         
@@ -419,23 +462,88 @@ async def submit_answer(
 
 @app.post("/interviews/{interview_id}/analyze")
 async def analyze_interview(interview_id: str, analysis_data: dict):
-    """Analyze completed interview and provide overall feedback."""
+    """Analyze completed interview using DATABASE data."""
     try:
-        if interview_id not in interview_sessions:
-            raise HTTPException(status_code=404, detail="Interview not found")
-        
-        session = interview_sessions[interview_id]
-        
-        if session["status"] != "completed":
-            raise HTTPException(status_code=400, detail="Interview not completed")
-        
-        # Generate overall analysis
-        overall_analysis = generate_overall_analysis(session)
-        
-        return {
-            "success": True,
-            "analysis": overall_analysis
-        }
+        if supabase:
+            # Get session from database
+            session_result = supabase.table("interview_sessions").select("*").eq("id", interview_id).execute()
+            if not session_result.data:
+                raise HTTPException(status_code=404, detail="Interview not found")
+            
+            session = session_result.data[0]
+            
+            if session.get("status") != "completed":
+                raise HTTPException(status_code=400, detail="Interview not completed")
+            
+            # Get all responses from database
+            responses = supabase.table("interview_responses")\
+                .select("*")\
+                .eq("session_id", interview_id)\
+                .execute()
+            
+            if not responses.data:
+                raise HTTPException(status_code=404, detail="No responses found")
+            
+            # Calculate overall scores
+            scores = []
+            communication_scores = []
+            for r in responses.data:
+                if "ai_analysis" in r:
+                    ai_analysis = r["ai_analysis"]
+                    if isinstance(ai_analysis, dict):
+                        if "score" in ai_analysis:
+                            scores.append(ai_analysis["score"])
+                        if "communication" in ai_analysis and "scores" in ai_analysis["communication"]:
+                            comm_scores = ai_analysis["communication"]["scores"]
+                            if "clarity_score" in comm_scores:
+                                communication_scores.append(comm_scores["clarity_score"])
+            
+            overall_score = sum(scores) / len(scores) if scores else 0
+            avg_clarity = sum(communication_scores) / len(communication_scores) if communication_scores else 0
+            
+            # Aggregate strengths/improvements
+            all_strengths = []
+            all_improvements = []
+            for r in responses.data:
+                if "ai_analysis" in r:
+                    ai_analysis = r["ai_analysis"]
+                    if isinstance(ai_analysis, dict):
+                        if "strengths" in ai_analysis:
+                            all_strengths.extend(ai_analysis["strengths"])
+                        if "improvements" in ai_analysis:
+                            all_improvements.extend(ai_analysis["improvements"])
+            
+            # Get unique items
+            unique_strengths = list(set(all_strengths))[:5]
+            unique_improvements = list(set(all_improvements))[:5]
+            
+            analysis = {
+                "overall_score": round(overall_score, 1),
+                "clarity_score": round(avg_clarity, 1),
+                "questions_answered": len(responses.data),
+                "feedback": {
+                    "strengths": unique_strengths,
+                    "improvements": unique_improvements,
+                    "overall": f"You scored {overall_score:.1f}/100. {'Excellent performance!' if overall_score >= 80 else 'Good effort! Keep practicing to improve.' if overall_score >= 60 else 'More practice needed.'}"
+                }
+            }
+            
+            # Store analysis in session
+            supabase.table("interview_sessions").update({
+                "feedback": analysis,
+                "total_score": overall_score
+            }).eq("id", interview_id).execute()
+            
+            return {"success": True, "analysis": analysis}
+        else:
+            # Fallback to memory
+            if interview_id not in interview_sessions:
+                raise HTTPException(status_code=404, detail="Interview not found")
+            session = interview_sessions[interview_id]
+            if session["status"] != "completed":
+                raise HTTPException(status_code=400, detail="Interview not completed")
+            analysis = generate_overall_analysis(session)
+            return {"success": True, "analysis": analysis}
         
     except HTTPException:
         raise
@@ -612,20 +720,45 @@ async def websocket_transcribe(websocket: WebSocket):
 # -----------------------------
 
 def _build_qg_prompt(payload: Dict[str, Any]) -> str:
-    resume_summary = payload.get("resume_summary", "")
-    tech_stack = ", ".join(payload.get("tech_stack", []))
+    """Build enhanced question generation prompt with resume focus."""
     job_role = payload.get("job_role", "Software Engineer")
+    tech_stack = payload.get("tech_stack", [])
+    difficulty = payload.get("difficulty", "medium")
+    resume_summary = payload.get("resume_summary", "")
     exp_level = payload.get("exp_level", "1-3 years")
     total = int(payload.get("total", 10))
-    return f"""
-You are an expert technical interviewer. Generate {total} technical interview questions tailored to the candidate.
+    
+    # Parse resume for projects
+    resume_projects = []
+    if resume_summary:
+        # Extract project mentions (simple parsing)
+        lines = resume_summary.split("\n")
+        for line in lines:
+            if any(keyword in line.lower() for keyword in ["project", "built", "developed", "created", "implemented"]):
+                resume_projects.append(line.strip())
+    
+    tech_stack_str = ", ".join(tech_stack) if tech_stack else "General"
+    
+    return f"""You are an expert technical interviewer conducting an ORAL interview.
+Generate {total} interview questions for:
 
-Candidate resume summary:
-{resume_summary}
+- Role: {job_role}
+- Tech Stack: {tech_stack_str}
+- Difficulty: {difficulty}
+- Experience level: {exp_level}
 
-Target role: {job_role}
-Tech stack: {tech_stack}
-Experience level bucket: {exp_level}
+CRITICAL REQUIREMENTS:
+1. Questions should be CONVERSATIONAL and suitable for ORAL interview
+2. Generate 2-3 questions SPECIFICALLY about the candidate's resume projects
+3. Questions should encourage detailed explanations with examples
+4. Avoid questions requiring written code or diagrams
+5. Focus on "tell me about", "explain how", "walk me through" style
+
+Resume Summary:
+{resume_summary if resume_summary else "No resume provided"}
+
+Resume Projects Identified:
+{chr(10).join(f"- {p}" for p in resume_projects[:3]) if resume_projects else "None"}
 
 Rules:
 - 60% should be tailored to the resume & target role; 40% fundamentals.
@@ -633,8 +766,10 @@ Rules:
 - Output strictly JSON with this shape:
 {{
   "questions": [
-    {{ "id": "q1", "text": "...", "category": "...", "difficulty": "easy|medium|hard", "rubric": ["point1","point2"] }},
-    ...
+    {{ "id": "q1", "text": "Tell me about [specific resume project]. How did you approach [technical challenge]?", "category": "Resume", "difficulty": "medium-hard", "rubric": ["Project understanding", "Technical depth", "Problem-solving approach"] }},
+    {{ "id": "q2", "text": "Walk me through your experience with [technology from resume]. What challenges did you face?", "category": "Resume", "difficulty": "medium", "rubric": ["Hands-on experience", "Challenge handling", "Learning approach"] }},
+    {{ "id": "q3", "text": "Explain your role in [team project from resume]. How did you collaborate with others?", "category": "Resume", "difficulty": "medium", "rubric": ["Collaboration", "Communication", "Team dynamics"] }},
+    ... (7 more general technical questions)
   ]
 }}
 """.strip()

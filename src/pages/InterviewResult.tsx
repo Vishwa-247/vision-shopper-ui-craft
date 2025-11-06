@@ -38,16 +38,27 @@ const InterviewResult = () => {
       try {
         setLoading(true);
         setError(null);
+        
+        // Fetch from backend which now uses database
         const resp = await fetch(`http://localhost:8000/interviews/${id}`);
         if (!resp.ok) throw new Error("Failed to load interview session");
+        
         const data = await resp.json();
-        setSession(data.interview || data);
-        // Try overall analysis (if already completed)
-        if ((data.interview?.status || data.status) === 'completed') {
-          const a = await fetch(`http://localhost:8000/interviews/${id}/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
-          if (a.ok) {
-            const aj = await a.json();
-            setAnalysis(aj.analysis || aj);
+        const interviewData = data.interview || data;
+        
+        setSession(interviewData);
+        
+        // Auto-analyze if completed
+        if (interviewData.status === 'completed') {
+          const analysisResp = await fetch(`http://localhost:8000/interviews/${id}/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+          });
+          
+          if (analysisResp.ok) {
+            const analysisData = await analysisResp.json();
+            setAnalysis(analysisData.analysis || analysisData);
           }
         }
       } catch (e: any) {
