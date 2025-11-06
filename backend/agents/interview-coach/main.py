@@ -468,12 +468,12 @@ async def analyze_interview(interview_id: str, analysis_data: dict):
             # Get session from database
             session_result = supabase.table("interview_sessions").select("*").eq("id", interview_id).execute()
             if not session_result.data:
-            raise HTTPException(status_code=404, detail="Interview not found")
+                raise HTTPException(status_code=404, detail="Interview not found")
         
             session = session_result.data[0]
         
             if session.get("status") != "completed":
-            raise HTTPException(status_code=400, detail="Interview not completed")
+                raise HTTPException(status_code=400, detail="Interview not completed")
         
             # Get all responses from database
             responses = supabase.table("interview_responses")\
