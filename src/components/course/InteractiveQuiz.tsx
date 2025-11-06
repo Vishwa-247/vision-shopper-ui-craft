@@ -94,17 +94,23 @@ export const InteractiveQuiz = ({ questions, onComplete }: InteractiveQuizProps)
           {currentQuestion.options.map((option, index) => {
             const isSelected = selectedAnswer === option;
             const isCorrectAnswer = option === currentQuestion.correct_answer;
+            // Show wrong answer as red if user selected it AND it's wrong
             const isWrongAnswer = showResult && isSelected && !isCorrectAnswer;
             
             let variantClass = 'border-2 border-border hover:bg-secondary/50';
             
             if (showResult) {
+              // Always show correct answer in green
               if (isCorrectAnswer) {
                 variantClass = 'quiz-option-correct';
-              } else if (isWrongAnswer) {
+              } 
+              // Show wrong selected answer in red
+              else if (isWrongAnswer) {
                 variantClass = 'quiz-option-incorrect';
               }
+              // Other options remain default when result is shown
             } else if (isSelected) {
+              // Before submit, show selected option
               variantClass = 'border-2 border-primary bg-primary/5';
             }
 
@@ -123,10 +129,12 @@ export const InteractiveQuiz = ({ questions, onComplete }: InteractiveQuizProps)
                   <span>{option}</span>
                   {showResult && (
                     <>
+                      {/* Always show checkmark for correct answer */}
                       {isCorrectAnswer && (
                         <CheckCircle2 className="h-5 w-5 text-green-600" />
                       )}
-                      {isSelected && !isCorrect && (
+                      {/* Show X only for wrong selected answer */}
+                      {isWrongAnswer && (
                         <XCircle className="h-5 w-5 text-red-600" />
                       )}
                     </>
