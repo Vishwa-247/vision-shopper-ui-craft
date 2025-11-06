@@ -794,6 +794,40 @@ async def generate_tts(course_id: str, script: str, audio_type: str):
                 # Store in Supabase storage (simplified - you'd upload to storage bucket)
                 audio_url = f"https://storage.example.com/{course_id}/{audio_type}.mp3"
                 
+                # Update existing record with audio_url if it exists, otherwise create new one
+                try:
+                    async with httpx.AsyncClient() as client:
+                        check_response = await client.get(
+                            f"{SUPABASE_URL}/rest/v1/course_audio?course_id=eq.{course_id}&audio_type=eq.{audio_type}",
+                            headers={
+                                "apikey": SUPABASE_SERVICE_KEY,
+                                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                            }
+                        )
+                        if check_response.status_code == 200:
+                            existing = check_response.json()
+                            if existing and len(existing) > 0:
+                                # Update existing record with audio_url
+                                update_response = await client.patch(
+                                    f"{SUPABASE_URL}/rest/v1/course_audio?id=eq.{existing[0]['id']}",
+                                    headers={
+                                        "apikey": SUPABASE_SERVICE_KEY,
+                                        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                                        "Content-Type": "application/json",
+                                        "Prefer": "return=representation"
+                                    },
+                                    json={
+                                        "audio_url": audio_url,
+                                        "voice_used": "Aria"
+                                    }
+                                )
+                                if update_response.status_code in [200, 204]:
+                                    logger.info(f"✅ Updated {audio_type} with audio URL")
+                                    return True
+                except Exception as e:
+                    logger.debug(f"Could not check/update existing record: {e}")
+                
+                # If no existing record, create new one
                 await insert_to_supabase("course_audio", [{
                     "course_id": course_id,
                     "audio_type": audio_type,
