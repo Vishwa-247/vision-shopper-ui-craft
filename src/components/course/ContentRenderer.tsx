@@ -58,7 +58,21 @@ export const ContentRenderer = ({ content }: ContentRendererProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Check if content is HTML (starts with < or contains HTML tags)
-  const isHTML = content.trim().startsWith('<') || /^<[a-z][\s\S]*>/.test(content.trim());
+  // Also check if it contains HTML tags even if there's text before them
+  const trimmedContent = content.trim();
+  const isHTML = trimmedContent.startsWith('<') || 
+                  /^<[a-z][\s\S]*>/.test(trimmedContent) ||
+                  /<[a-z]+[^>]*>[\s\S]*<\/[a-z]+>/i.test(trimmedContent);
+  
+  // If content contains HTML tags, extract and render only the HTML part
+  let htmlContent = trimmedContent;
+  if (isHTML && !trimmedContent.startsWith('<')) {
+    // Extract HTML portion (everything from first < to last >)
+    const htmlMatch = trimmedContent.match(/<[\s\S]*>/);
+    if (htmlMatch) {
+      htmlContent = htmlMatch[0];
+    }
+  }
   
   // Add copy buttons to code blocks after rendering
   useEffect(() => {
@@ -113,7 +127,7 @@ export const ContentRenderer = ({ content }: ContentRendererProps) => {
       <div 
         ref={containerRef}
         className="prose prose-slate dark:prose-invert max-w-none"
-        dangerouslySetInnerHTML={{ __html: content }}
+        dangerouslySetInnerHTML={{ __html: htmlContent }}
       />
     );
   }

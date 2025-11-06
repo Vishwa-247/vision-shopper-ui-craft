@@ -27,10 +27,22 @@ const CourseGenerator = () => {
   });
   const [currentStep, setCurrentStep] = useState('');
   const [courseId, setCourseId] = useState<string | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [estimatedTime, setEstimatedTime] = useState<number | null>(null);
 
   // Subscribe to realtime progress updates
   useEffect(() => {
     if (!courseId) return;
+
+    const startTimeKey = `course_gen_start_${courseId}`;
+    const startTime = Date.now();
+    localStorage.setItem(startTimeKey, startTime.toString());
+    
+    // Start elapsed time counter
+    const timeInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      setElapsedTime(elapsed);
+    }, 1000);
 
     const channel = supabase
       .channel('course-generation-progress')
@@ -46,6 +58,14 @@ const CourseGenerator = () => {
           const progress = payload.new.progress || 0;
           const status = payload.new.status;
           const step = payload.new.current_step || "";
+
+          // Calculate estimated remaining time based on progress
+          if (progress > 0 && progress < 100) {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const estimatedTotal = Math.ceil((elapsed / progress) * 100);
+            const remaining = Math.max(0, estimatedTotal - elapsed);
+            setEstimatedTime(remaining);
+          }
 
           // Map backend steps to learning modes
           const stepLower = step.toLowerCase();
@@ -65,14 +85,14 @@ const CourseGenerator = () => {
           setCurrentStep(step);
 
           if (status === 'completed' && progress >= 100) {
+            clearInterval(timeInterval);
             setIsGenerating(false);
             setLoading(false);
+            setEstimatedTime(0);
             
             // Calculate generation duration
-            const generationStart = localStorage.getItem(`course_gen_start_${courseId}`);
-            const generationDuration = generationStart 
-              ? Math.round((Date.now() - parseInt(generationStart)) / 1000)
-              : 0;
+            const generationDuration = Math.floor((Date.now() - startTime) / 1000);
+            localStorage.removeItem(startTimeKey);
             
             // Show success toast with stats
             toast.success("🎉 Course Ready!", {
@@ -80,20 +100,24 @@ const CourseGenerator = () => {
               duration: 5000,
             });
             
-            // Navigate after 1 second
+            // Navigate to My Courses after 1 second
             setTimeout(() => {
-              navigate(`/course/${courseId}`);
+              navigate('/courses');
             }, 1000);
           } else if (status === 'failed') {
+            clearInterval(timeInterval);
+            setEstimatedTime(null);
             toast.error("Course generation failed");
             setIsGenerating(false);
             setLoading(false);
+            localStorage.removeItem(startTimeKey);
           }
         }
       )
       .subscribe();
 
     return () => {
+      clearInterval(timeInterval);
       supabase.removeChannel(channel);
     };
   }, [courseId, navigate]);
@@ -113,6 +137,8 @@ const CourseGenerator = () => {
     setLoading(true);
     setIsGenerating(true);
     setCurrentStep('Initializing course generation...');
+    setElapsedTime(0);
+    setEstimatedTime(null);
 
     try {
       const response = await fetch(`${API_GATEWAY_URL}/courses/generate-parallel`, {
@@ -149,6 +175,13 @@ const CourseGenerator = () => {
 
   const handleSuggestionClick = (suggestionTitle: string) => {
     setTopic(suggestionTitle);
+  };
+
+  const formatTime = (seconds: number): string => {
+    if (seconds < 60) return `${seconds}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}m ${secs}s`;
   };
 
   return (
@@ -218,6 +251,12 @@ const CourseGenerator = () => {
                   <div className="text-center space-y-2">
                     <h3 className="text-lg font-semibold">Creating Your Course</h3>
                     <p className="text-sm text-muted-foreground">{currentStep}</p>
+                    <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                      <span>⏱️ Elapsed: {formatTime(elapsedTime)}</span>
+                      {estimatedTime !== null && estimatedTime > 0 && (
+                        <span>🕐 Est. remaining: {formatTime(estimatedTime)}</span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="space-y-4">

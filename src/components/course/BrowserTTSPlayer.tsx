@@ -38,10 +38,10 @@ export const BrowserTTSPlayer = ({ script, title, audioType }: BrowserTTSPlayerP
 
     const utterance = new SpeechSynthesisUtterance(text.trim());
     
-    // Configure voice settings
-    utterance.rate = rate;
+    // Configure voice settings - use current state values
+    utterance.rate = rate; // Use current rate state
     utterance.pitch = 1.0;
-    utterance.volume = volume;
+    utterance.volume = volume; // Use current volume state
 
     // Get available voices
     const voices = window.speechSynthesis.getVoices();
@@ -139,15 +139,25 @@ export const BrowserTTSPlayer = ({ script, title, audioType }: BrowserTTSPlayerP
   const handleRateChange = (value: number[]) => {
     const newRate = value[0];
     setRate(newRate);
-    if (utteranceRef.current) {
-      utteranceRef.current.rate = newRate;
+    // If currently playing, cancel and restart with new rate
+    if (isPlaying && utteranceRef.current) {
+      const currentSentenceIndex = currentIndex; // Save current index
+      window.speechSynthesis.cancel();
+      setIsPlaying(false);
+      setIsPaused(false);
+      // Restart from current sentence with new rate
+      setTimeout(() => {
+        setIsPlaying(true);
+        speakText(sentences[currentSentenceIndex], currentSentenceIndex);
+      }, 100);
     }
   };
 
   const handleVolumeChange = (value: number[]) => {
     const newVolume = value[0];
     setVolume(newVolume);
-    if (utteranceRef.current) {
+    // Update volume for current utterance if playing
+    if (utteranceRef.current && isPlaying) {
       utteranceRef.current.volume = newVolume;
     }
   };
