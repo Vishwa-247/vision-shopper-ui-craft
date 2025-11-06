@@ -330,8 +330,8 @@ async def submit_answer(
 
         current_idx = session.get("current_question", 0) if question_id is None else int(question_id)
 
-        # Analyze the answer (simplified)
-        feedback = analyze_answer(
+        # Analyze the answer using AI
+        feedback = await analyze_answer(
             session["questions"][current_idx],
             user_answer_text
         )
@@ -346,25 +346,55 @@ async def submit_answer(
         session["current_question"] = current_idx + 1
         
         # Check if interview is complete
-        if session["current_question"] >= len(session["questions"]):
+        is_complete = session["current_question"] >= len(session["questions"])
+        if is_complete:
             session["status"] = "completed"
             session["end_time"] = datetime.utcnow().isoformat()
         
         interview_sessions[interview_id] = session
 
-        # Persist response (best-effort)
+        # Update Supabase with progress
         if supabase:
             try:
-                supabase.table("interview_responses").insert({
+                # Update session progress
+                update_data = {
+                    "current_question_index": session["current_question"],
+                    "questions_data": {"questions": session["questions"]},
+                    "status": "completed" if is_complete else "active"
+                }
+                if is_complete:
+                    update_data["completed_at"] = session["end_time"]
+                
+                supabase.table("interview_sessions").update(update_data).eq("id", interview_id).execute()
+                
+                # Get facial data from request if available
+                facial_data = None
+                try:
+                    form_data = await request.form()
+                    facial_data_str = form_data.get('facial_data')
+                    if facial_data_str:
+                        try:
+                            facial_data = json.loads(facial_data_str)
+                        except:
+                            pass
+                except:
+                    pass
+                
+                # Persist response with facial data
+                insert_data = {
                     "session_id": interview_id,
                     "user_id": session.get("user_id"),
                     "question_index": current_idx,
                     "question_text": session["questions"][current_idx].get("question") or session["questions"][current_idx].get("text"),
                     "response_text": user_answer_text,
                     "ai_analysis": feedback,
-                }).execute()
+                }
+                if facial_data:
+                    insert_data["facial_analysis"] = facial_data
+                
+                supabase.table("interview_responses").insert(insert_data).execute()
             except Exception as e:
-                logger.warning(f"Supabase insert response failed: {e}")
+                logger.warning(f"Supabase update failed: {e}")
         
         next_question = None
         if session["current_question"] < len(session["questions"]):
@@ -427,37 +457,83 @@ def generate_questions(interview_type: str, difficulty: str, topics: List[str]) 
     # For now, return first 5 questions
     return questions[:5]
 
-def analyze_answer(question: Dict[str, Any], answer: str) -> Dict[str, Any]:
-    """Analyze user's answer and provide feedback."""
-    # Simplified analysis - in real implementation, use AI
+async def analyze_answer(question: Dict[str, Any], answer: str) -> Dict[str, Any]:
+    """Analyze user's answer using AI and provide detailed feedback."""
     word_count = len(answer.split())
     
-    # Basic scoring
-    score = min(100, max(0, word_count * 2))  # 2 points per word, max 100
+    # Use Groq for fast AI analysis
+    groq_key = GROQ_API_KEY
+    if not groq_key or word_count < 5:
+        # Fallback to basic scoring
+        score = min(100, max(0, word_count * 2))
+        return {
+            "score": score,
+            "word_count": word_count,
+            "strengths": ["Answer provided"],
+            "improvements": ["Add more details and examples"],
+            "overall_feedback": "Try to elaborate more on your answer."
+        }
     
-    feedback = {
+    # AI-powered analysis
+    try:
+        question_text = question.get('question') or question.get('text', '')
+        expected_points = question.get('expected_points', [])
+        
+        prompt = f"""Analyze this interview answer and provide structured feedback:
+
+Question: {question_text}
+Answer: {answer}
+
+Expected points to cover: {', '.join(expected_points) if expected_points else 'Relevant technical knowledge and examples'}
+
+Provide feedback in this exact JSON format:
+{{
+    "score": <0-100>,
+    "strengths": ["strength1", "strength2"],
+    "improvements": ["improvement1", "improvement2"],
+    "overall_feedback": "one sentence summary"
+}}"""
+
+        result = await _call_groq(prompt, timeout=15.0, api_key=groq_key)
+        
+        if result:
+            # _call_groq returns parsed JSON dict
+            # Check if result has the expected feedback structure
+            if isinstance(result, dict):
+                if "score" in result:
+                    feedback = result
+                    feedback["word_count"] = word_count
+                    # Ensure all required fields exist
+                    if "strengths" not in feedback:
+                        feedback["strengths"] = []
+                    if "improvements" not in feedback:
+                        feedback["improvements"] = []
+                    if "overall_feedback" not in feedback:
+                        feedback["overall_feedback"] = "AI analysis completed"
+                    return feedback
+                
+                # If result has different structure, extract feedback fields
+                feedback = {
+                    "score": result.get("score", 75),
+                    "word_count": word_count,
+                    "strengths": result.get("strengths", ["AI analysis completed"]),
+                    "improvements": result.get("improvements", ["Could provide more specific examples"]),
+                    "overall_feedback": result.get("overall_feedback", result.get("feedback", "Analysis completed"))
+                }
+                return feedback
+            
+    except Exception as e:
+        logger.warning(f"AI analysis failed: {e}")
+    
+    # Fallback
+    score = min(100, max(0, word_count * 2))
+    return {
         "score": score,
         "word_count": word_count,
-        "strengths": [],
-        "improvements": [],
-        "overall_feedback": ""
+        "strengths": ["Answer provided"],
+        "improvements": ["Add more details"],
+        "overall_feedback": "Good start. Try to add more specific examples."
     }
-    
-    if word_count < 10:
-        feedback["improvements"].append("Try to provide more detailed answers")
-        feedback["overall_feedback"] = "Your answer is quite brief. Consider elaborating with examples and explanations."
-    elif word_count > 100:
-        feedback["improvements"].append("Try to be more concise")
-        feedback["overall_feedback"] = "Good detail, but try to be more concise in your explanations."
-    else:
-        feedback["strengths"].append("Good answer length")
-        feedback["overall_feedback"] = "Well-structured answer with appropriate detail."
-    
-    # Check for technical terms (basic implementation)
-    if any(term in answer.lower() for term in ["algorithm", "database", "api", "framework"]):
-        feedback["strengths"].append("Good use of technical terminology")
-    
-    return feedback
 
 def generate_overall_analysis(session: Dict[str, Any]) -> Dict[str, Any]:
     """Generate overall interview analysis."""

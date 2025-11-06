@@ -160,6 +160,11 @@ async def health_check():
     }
 
 # Authentication endpoints
+@app.options("/auth/signin")
+async def options_signin():
+    """Handle CORS preflight requests"""
+    return {"message": "OK"}
+
 @app.post("/auth/signin")
 async def sign_in(credentials: dict):
     # For demo purposes, accept any email/password

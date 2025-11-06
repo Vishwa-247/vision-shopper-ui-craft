@@ -966,6 +966,10 @@ const MockInterview = () => {
                       const fd = new FormData();
                       fd.append('audio', blob, 'answer.webm');
                       fd.append('question_id', String(currentQuestionIndex));
+                      // Send facial data if available
+                      if (metricsData.facialData) {
+                        fd.append('facial_data', JSON.stringify(metricsData.facialData));
+                      }
                       const resp = await fetch(`http://localhost:8000/interviews/${interviewId}/answer`, {
                         method: 'POST',
                         body: fd,
