@@ -149,7 +149,7 @@ async def call_gemini_with_retry(prompt: str, service: str = "chapter", max_retr
                 
                 api_key = get_key_for_service(service)
                 
-                async with httpx.AsyncClient(timeout=30.0) as client:
+                async with httpx.AsyncClient(timeout=45.0) as client:  # Increased timeout
                     response = await client.post(
                         f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={api_key}",
                         json={
@@ -165,7 +165,20 @@ async def call_gemini_with_retry(prompt: str, service: str = "chapter", max_retr
                             logger.warning(f"⏳ [{service}] Rate limited, retrying in {wait}s...")
                             await asyncio.sleep(wait)
                             continue
-                        raise HTTPException(status_code=429, detail=f"Gemini API rate limit exceeded for {service}")
+                        else:
+                            # Last attempt - try fallback to general key pool
+                            logger.warning(f"⚠️ [{service}] All service keys rate limited, falling back to general key pool")
+                            fallback_key = get_key_for_service("chapter")  # Use chapter pool as fallback
+                            response = await client.post(
+                                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={fallback_key}",
+                                json={
+                                    "contents": [{
+                                        "parts": [{"text": prompt}]
+                                    }]
+                                }
+                            )
+                            if response.status_code == 429:
+                                raise HTTPException(status_code=429, detail=f"Gemini API rate limit exceeded for {service} (even with fallback)")
                     
                     response.raise_for_status()
                     logger.info(f"✅ [{service}] API call successful")
@@ -489,15 +502,17 @@ async def generate_in_parallel(course_id: str, topic: str, user_id: str):
     
     try:
         # Update progress
-        await update_progress(course_id, 10, "Generating course outline...")
+        await update_progress(course_id, 10, "📚 Learn by Reading - Generating course structure...")
         
         # STEP 1: Generate outline
         outline = await generate_outline(topic)
-        logger.info(f"✅ Outline generated with {len(outline['chapters'])} chapters")
+        chapter_count = len(outline['chapters'])
+        logger.info(f"✅ Outline generated with {chapter_count} chapters")
+        await update_progress(course_id, 15, f"📚 Learn by Reading - Generated {chapter_count} chapters outline")
         
-        await update_progress(course_id, 20, "Generating content...")
+        await update_progress(course_id, 20, "📚 Learn by Reading - Creating chapter content...")
         
-        # STEP 2: Parallel generation
+        # STEP 2: Parallel generation with better error handling
         results = await asyncio.gather(
             generate_chapters(course_id, topic, outline),
             generate_flashcards(course_id, topic),
@@ -508,10 +523,33 @@ async def generate_in_parallel(course_id: str, topic: str, user_id: str):
             return_exceptions=True
         )
         
-        chapters, flashcards, mcqs, articles, word_games, audio_scripts = results
-        logger.info("✅ All content generated")
+        # Handle exceptions gracefully
+        chapters = results[0] if not isinstance(results[0], Exception) else []
+        flashcards = results[1] if not isinstance(results[1], Exception) else []
+        mcqs = results[2] if not isinstance(results[2], Exception) else []
+        articles = results[3] if not isinstance(results[3], Exception) else {}
+        word_games = results[4] if not isinstance(results[4], Exception) else []
+        audio_scripts = results[5] if not isinstance(results[5], Exception) else {}
         
-        await update_progress(course_id, 60, "Creating audio...")
+        # Log any exceptions
+        service_names = ["chapters", "flashcards", "mcqs", "articles", "word_games", "audio_scripts"]
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.error(f"⚠️ {service_names[i]} generation failed: {result}")
+        
+        # Detailed progress update
+        chapter_count = len(chapters) if chapters else 0
+        flashcard_count = len(flashcards) if flashcards else 0
+        mcq_count = len(mcqs) if mcqs else 0
+        await update_progress(
+            course_id, 
+            50, 
+            f"📚 Learn by Reading - Created {chapter_count} chapters\n🎮 Learn by Interacting - {mcq_count} quizzes, {flashcard_count} flashcards"
+        )
+        
+        logger.info("✅ Content generation completed (some may have failed gracefully)")
+        
+        await update_progress(course_id, 60, "🎧 Learn by Listening - Creating audio scripts...")
         
         # STEP 3: Store audio scripts in database (always, even if TTS fails)
         audio_success = False
@@ -540,6 +578,7 @@ async def generate_in_parallel(course_id: str, topic: str, user_id: str):
             if audio_records:
                 await insert_to_supabase("course_audio", audio_records)
                 logger.info("✅ Audio scripts stored in database")
+                await update_progress(course_id, 70, "🎧 Learn by Listening - Audio scripts ready for playback")
             
             # Try to generate TTS if API key available
             if ELEVENLABS_API_KEY:
@@ -576,13 +615,13 @@ async def generate_in_parallel(course_id: str, topic: str, user_id: str):
             else:
                 logger.info("ℹ️ ElevenLabs API key not configured - scripts stored for browser TTS")
         
-        await update_progress(course_id, 80, "Finding resources...")
+        await update_progress(course_id, 80, "🎮 Learn by Interacting - Finding resources...")
         
         # STEP 4: Find resources if Brave key available
         if BRAVE_API_KEY:
             await find_resources(course_id, topic)
         
-        await update_progress(course_id, 90, "Generating suggestions...")
+        await update_progress(course_id, 90, "🎮 Learn by Interacting - Generating practice exercises...")
         
         # STEP 5: Generate suggestions
         await generate_suggestions(course_id, topic)

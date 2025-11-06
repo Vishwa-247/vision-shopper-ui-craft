@@ -51,11 +51,12 @@ const CourseGenerator = () => {
           const stepLower = step.toLowerCase();
           let updatedProgress = { ...generationProgress };
 
-          if (stepLower.includes('podcast') || stepLower.includes('audio') || stepLower.includes('lecture')) {
+          // Enhanced mapping based on actual backend step messages
+          if (stepLower.includes('audio') || stepLower.includes('listening') || stepLower.includes('podcast') || stepLower.includes('lecture') || stepLower.includes('script')) {
             updatedProgress.listening = Math.min(progress, 100);
-          } else if (stepLower.includes('article') || stepLower.includes('chapter') || stepLower.includes('notes')) {
+          } else if (stepLower.includes('reading') || stepLower.includes('chapter') || stepLower.includes('outline') || stepLower.includes('structure') || stepLower.includes('article') || stepLower.includes('notes')) {
             updatedProgress.reading = Math.min(progress, 100);
-          } else if (stepLower.includes('quiz') || stepLower.includes('flashcard') || stepLower.includes('game')) {
+          } else if (stepLower.includes('interacting') || stepLower.includes('quiz') || stepLower.includes('flashcard') || stepLower.includes('game') || stepLower.includes('exercise') || stepLower.includes('resource') || stepLower.includes('suggestion') || stepLower.includes('practice')) {
             updatedProgress.interacting = Math.min(progress, 100);
           }
 

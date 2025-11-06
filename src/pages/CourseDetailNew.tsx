@@ -385,7 +385,7 @@ const CourseDetailNew = () => {
                             ))}
                           </div>
                         ) : (
-                          <p className="whitespace-pre-wrap">{article.content}</p>
+                          <ContentRenderer content={article.content} />
                         )}
                       </div>
                     </Card>
