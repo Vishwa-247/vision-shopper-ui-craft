@@ -30,6 +30,7 @@ const CourseDetailNew = () => {
   const [wordGames, setWordGames] = useState<any[]>([]);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [completedChapters, setCompletedChapters] = useState<string[]>([]);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -225,6 +226,8 @@ const CourseDetailNew = () => {
           onChapterSelect={setSelectedChapterId}
           progress={progress}
           completedChapters={completedChapters}
+          isCollapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
 
         <div className="flex-1 overflow-y-auto">

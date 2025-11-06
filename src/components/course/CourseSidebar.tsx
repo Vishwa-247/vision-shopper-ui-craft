@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, BookOpen, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, BookOpen, CheckCircle2, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,8 @@ interface CourseSidebarProps {
   onChapterSelect: (chapterId: string) => void;
   progress: number;
   completedChapters: string[];
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export const CourseSidebar = ({
@@ -25,6 +27,8 @@ export const CourseSidebar = ({
   onChapterSelect,
   progress,
   completedChapters,
+  isCollapsed = false,
+  onToggleCollapse,
 }: CourseSidebarProps) => {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     basic: true,
@@ -57,19 +61,19 @@ export const CourseSidebar = ({
           key={chapter.id}
           variant="ghost"
           className={cn(
-            'w-full justify-start text-left pl-8 py-2 h-auto',
+            'w-full justify-start text-left pl-3 pr-2 py-2.5 h-auto min-h-[3rem]',
             isActive && 'bg-primary/10 text-primary font-medium',
             !isActive && 'hover:bg-muted'
           )}
           onClick={() => onChapterSelect(chapter.id)}
         >
-          <div className="flex items-start gap-2 flex-1 min-w-0">
+          <div className="flex items-start gap-2.5 flex-1 min-w-0 w-full">
             {isCompleted ? (
-              <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0 mt-1" />
+              <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
             ) : (
-              <BookOpen className="h-4 w-4 flex-shrink-0 mt-1" />
+              <BookOpen className="h-4 w-4 flex-shrink-0 mt-0.5 text-muted-foreground" />
             )}
-            <span className="text-sm leading-tight break-words flex-1">{chapter.title}</span>
+            <span className="text-sm leading-relaxed break-words flex-1 text-left whitespace-normal">{chapter.title}</span>
           </div>
         </Button>
       );
@@ -97,20 +101,58 @@ export const CourseSidebar = ({
     );
   };
 
+  // Collapsed state - show only toggle button
+  if (isCollapsed) {
+    return (
+      <div className="w-12 border-r border-border bg-card h-full flex flex-col items-center py-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleCollapse}
+          className="mb-4"
+          title="Expand sidebar"
+        >
+          <ChevronRightIcon className="h-5 w-5" />
+        </Button>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="writing-vertical-rl transform rotate-180 text-xs text-muted-foreground font-semibold">
+            Chapters
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Expanded state - show full sidebar
   return (
-    <div className="w-72 border-r border-border bg-card h-full overflow-y-auto">
-      <div className="p-4 border-b border-border">
-        <h3 className="font-semibold text-sm text-muted-foreground mb-2">Course Progress</h3>
-        <Progress value={progress} className="h-2" />
-        <p className="text-xs text-muted-foreground mt-2">{Math.round(progress)}% Complete</p>
+    <div className="w-80 border-r border-border bg-card h-full overflow-y-auto flex flex-col transition-all duration-300">
+      {/* Header with collapse button */}
+      <div className="p-4 border-b border-border flex items-center justify-between">
+        <div className="flex-1">
+          <h3 className="font-semibold text-sm text-muted-foreground mb-2">Course Progress</h3>
+          <Progress value={progress} className="h-2" />
+          <p className="text-xs text-muted-foreground mt-2">{Math.round(progress)}% Complete</p>
+        </div>
+        {onToggleCollapse && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleCollapse}
+            className="ml-2 flex-shrink-0"
+            title="Collapse sidebar"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+        )}
       </div>
 
-      <div className="p-2">
+      {/* Chapters list */}
+      <div className="p-3 flex-1 overflow-y-auto">
         {basicChapters.length > 0 && (
-          <div className="mb-2">
+          <div className="mb-3">
             <SectionHeader title="Basics" icon="📘" level="basic" count={basicChapters.length} />
             {expandedSections.basic && (
-              <div className="space-y-1">
+              <div className="space-y-1 mt-1">
                 {renderChapterList(basicChapters)}
               </div>
             )}
@@ -118,10 +160,10 @@ export const CourseSidebar = ({
         )}
 
         {intermediateChapters.length > 0 && (
-          <div className="mb-2">
+          <div className="mb-3">
             <SectionHeader title="Intermediate" icon="📗" level="intermediate" count={intermediateChapters.length} />
             {expandedSections.intermediate && (
-              <div className="space-y-1">
+              <div className="space-y-1 mt-1">
                 {renderChapterList(intermediateChapters)}
               </div>
             )}
@@ -129,10 +171,10 @@ export const CourseSidebar = ({
         )}
 
         {advancedChapters.length > 0 && (
-          <div className="mb-2">
+          <div className="mb-3">
             <SectionHeader title="Advanced" icon="📕" level="advanced" count={advancedChapters.length} />
             {expandedSections.advanced && (
-              <div className="space-y-1">
+              <div className="space-y-1 mt-1">
                 {renderChapterList(advancedChapters)}
               </div>
             )}
