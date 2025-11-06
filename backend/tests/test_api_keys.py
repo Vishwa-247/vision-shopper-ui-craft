@@ -80,6 +80,11 @@ async def test_gemini_key(api_key: str, key_name: str) -> bool:
 async def test_elevenlabs_key(api_key: str) -> bool:
     """Test ElevenLabs API key"""
     try:
+        # Check if key starts with 'sk_' (ElevenLabs format)
+        if not api_key.startswith('sk_'):
+            print_result("ElevenLabs API", "❌ FAIL", f"Invalid key format. Should start with 'sk_'. Got: {api_key[:10]}...")
+            return False
+        
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
                 "https://api.elevenlabs.io/v1/user",
@@ -87,12 +92,18 @@ async def test_elevenlabs_key(api_key: str) -> bool:
             )
             
             if response.status_code == 200:
+                data = response.json()
+                subscription = data.get("subscription", {})
+                print_result("ElevenLabs API", "✅ PASS", f"Key valid. Subscription: {subscription.get('tier', 'unknown')}")
                 return True
             elif response.status_code == 401:
-                print_result("ElevenLabs API", "❌ FAIL", "Invalid API key")
+                print_result("ElevenLabs API", "❌ FAIL", f"Invalid API key (401 Unauthorized). Check if key is correct.")
                 return False
+            elif response.status_code == 429:
+                print_result("ElevenLabs API", "⚠️ SKIP", "Rate limited (key is valid but hit limit)")
+                return True  # Rate limit means key is valid
             else:
-                print_result("ElevenLabs API", "❌ FAIL", f"HTTP {response.status_code}")
+                print_result("ElevenLabs API", "❌ FAIL", f"HTTP {response.status_code}: {response.text[:100]}")
                 return False
     except Exception as e:
         print_result("ElevenLabs API", "❌ FAIL", f"Error: {str(e)[:100]}")
