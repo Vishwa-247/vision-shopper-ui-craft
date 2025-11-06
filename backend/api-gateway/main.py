@@ -294,7 +294,6 @@ async def generate_technical(interview_data: dict, user_id: str = Depends(verify
 @app.post("/interviews/{interview_id}/answer")
 async def submit_interview_answer(
     interview_id: str,
-    user_id: str = Depends(verify_token),
     audio: UploadFile | None = File(None),
     question_id: str | None = Form(None),
 ):
